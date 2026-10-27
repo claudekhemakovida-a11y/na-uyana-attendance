@@ -158,6 +158,13 @@ tr.we td{background:color-mix(in srgb,var(--rule-2) 45%,transparent)}
 .fld>span{font-size:12.5px;color:var(--ink-2)}
 .fld input,.fld select,.fld textarea{width:100%}
 .sub2{display:grid;gap:8px;border-top:1px solid var(--rule-2);padding-top:12px}
+.photoRow{display:flex;gap:14px;align-items:center}
+.photo{width:90px;height:120px;flex:0 0 auto;border-radius:8px;border:1px solid var(--rule);background:var(--paper);overflow:hidden;display:grid;place-items:center;color:var(--ink-2)}
+.photo img{width:100%;height:100%;object-fit:cover}
+.av{width:36px;height:48px;flex:0 0 auto;border-radius:6px;object-fit:cover;background:var(--rule-2);color:var(--ink-2);display:grid;place-items:center;overflow:hidden}
+.declare{display:grid;gap:4px;padding:12px;border-radius:10px;background:var(--gold-bg);border:1px solid var(--gold)}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;font-weight:600;cursor:pointer}
+.check input{width:18px;height:18px;margin-top:2px;flex:0 0 auto;accent-color:var(--accent)}
 .qrbox{display:grid;justify-items:center;gap:12px;text-align:center}
 #qr{background:#fff;padding:18px;border-radius:12px;border:1px solid var(--rule)}
 #qr img{display:block;width:260px;height:260px;max-width:100%}
@@ -236,7 +243,7 @@ si:{
   evt:{in:"පැමිණීම",out:"පිටවීම",early:"කලින් පිටවීම",offi:"නිල කටයුත්තකට පිටතට",back:"ආපසු පැමිණීම"},
   reasons:{health:"සෞඛ්‍ය හේතු",medical:"වෛද්‍ය හමුවීමක්",family:"පවුලේ අවශ්‍යතාවයක්",personal:"පෞද්ගලික කටයුතු",emergency:"හදිසි අවස්ථාවක්",leave:"අනුමත නිවාඩු (අර්ධ දින)",other:"වෙනත් හේතු"},
   duties:{divsec:"ප්‍රාදේශීය ලේකම් කාර්යාලය",bank:"බැංකු කටයුතු",post:"තැපැල් කටයුතු",meeting:"නිල රැස්වීමක්",training:"පුහුණු වැඩසටහනක්",field:"ක්ෂේත්‍ර කටයුතු",purchase:"ආයතනික මිලදී ගැනීම්",other:"වෙනත් නිල කටයුතු"},
-  types:{perm:"ස්ථිර",contract:"කොන්ත්‍රාත්",temp:"තාවකාලික",intern:"අභ්‍යාසලාභී"},
+  types:{secretary:"ලේකම්",driver:"රියදුරු",labourer:"කම්කරු"},
   fields:{empNo:"සේවක අංකය",nic:"ජාතික හැඳුනුම්පත් අංකය",phone:"දුරකථන අංකය",email:"විද්‍යුත් තැපෑල",dob:"උපන් දිනය",joined:"සේවයට බැඳුණු දිනය",type:"සේවා වර්ගය",grade:"ශ්‍රේණිය / වැටුප් පරිමාණය",address:"ස්ථිර ලිපිනය",emergency:"හදිසි අවස්ථාවකදී සම්බන්ධ කළ යුත්තා (නම හා දුරකථනය)",notes:"වෙනත් සටහන්"},
   locale:"si-LK",
   prettyDate:(y,m,d,w)=>`${y} ${m} ${d}, ${w}`, monthTitle:(y,m)=>`${y} ${m} මාසය`,
@@ -278,6 +285,8 @@ si:{
   pdfOk:"PDF එක සුරැකුණි", dlCancelled:"බාගැනීම අවලංගු කළා", libsFail:"PDF මෙවලම පූරණය නොවීය. පිටුව නැවත විවෘත කරන්න.", pdfFail:"PDF සැකසීමට නොහැකි විය.",
   newStaff:"+ නව සේවකයෙකු", staffCount:n=>`සේවකයින් (${n})`, noDetails:"විස්තර ඇතුළත් කර නැත", numPrefix:"අංකය ", linked:"ගිණුම සම්බන්ධයි", noAcct:"ගිණුම නැත",
   newTitle:"නව සේවකයෙකු", close:"වසන්න", fullName:"සම්පූර්ණ නම *", namePh:"උදා: විමලදාස මහතා", desig:"තනතුර", choose:"— තෝරන්න —",
+  photo:"ඡායාරූපය", addPhoto:"ඡායාරූපය එක් කරන්න", changePhoto:"ඡායාරූපය වෙනස් කරන්න", removePhoto:"ඉවත් කරන්න", photoHelp:"දුරකථනයෙන් නම් කැමරාවෙන් කෙලින්ම ගත හැක.", photoFail:"ඡායාරූපය කියවිය නොහැකි විය.",
+  declare:"ඉහත ඇතුළත් කළ තොරතුරු සත්‍ය හා නිවැරදි බව තහවුරු කරමි.", declareReq:"සුරැකීමට පෙර තොරතුරු සත්‍ය බව තහවුරු කරන්න.", confirmedBy:(e,d)=>`තොරතුරු සත්‍ය බව අවසන් වරට තහවුරු කළේ: ${e} · ${d}`,
   privacyNote:"නම හා තනතුර පමණක් සේවකයාට පෙනේ. අනෙක් සියලු විස්තර පරිපාලකයින්ට පමණි.",
   acctHead:"පැමිණීම සටහන් කරන ගිණුම", connected:"සම්බන්ධයි", unlink:"ගිණුම ඉවත් කරන්න",
   noAcctHelp:"තවම ගිණුමක් සම්බන්ධ කර නැත. සේවකයා QR කේතය ස්කෑන් කර තම නම තේරූ පසු, ඉල්ලීම මෙම ටැබයේ ඉහළින් පෙන්වයි.",
@@ -308,7 +317,7 @@ en:{
   evt:{in:"Arrival",out:"Departure",early:"Early leave",offi:"Out on official duty",back:"Returned"},
   reasons:{health:"Health reasons",medical:"Medical appointment",family:"Family need",personal:"Personal matters",emergency:"Emergency",leave:"Approved half-day leave",other:"Other reason"},
   duties:{divsec:"Divisional Secretariat",bank:"Bank business",post:"Post office business",meeting:"Official meeting",training:"Training programme",field:"Field work",purchase:"Purchases for the centre",other:"Other official duty"},
-  types:{perm:"Permanent",contract:"Contract",temp:"Temporary",intern:"Trainee"},
+  types:{secretary:"Secretary",driver:"Driver",labourer:"Labourer"},
   fields:{empNo:"Employee number",nic:"National ID (NIC) number",phone:"Phone number",email:"Email",dob:"Date of birth",joined:"Date joined",type:"Employment type",grade:"Grade / salary scale",address:"Permanent address",emergency:"Emergency contact (name and phone)",notes:"Other notes"},
   locale:"en-GB",
   prettyDate:(y,m,d,w)=>`${w}, ${d} ${m} ${y}`, monthTitle:(y,m)=>`${m} ${y}`,
@@ -350,6 +359,8 @@ en:{
   pdfOk:"PDF saved", dlCancelled:"Download cancelled", libsFail:"The PDF tool didn't load. Reopen the page.", pdfFail:"Couldn't create the PDF.",
   newStaff:"+ New staff member", staffCount:n=>`Staff (${n})`, noDetails:"No details yet", numPrefix:"No. ", linked:"Account linked", noAcct:"No account",
   newTitle:"New staff member", close:"Close", fullName:"Full name *", namePh:"e.g. Mr. Wimaladasa", desig:"Designation", choose:"— Choose —",
+  photo:"Photo", addPhoto:"Add photo", changePhoto:"Change photo", removePhoto:"Remove", photoHelp:"On a phone you can take it with the camera directly.", photoFail:"The photo couldn't be read.",
+  declare:"I confirm that the information entered above is true and correct.", declareReq:"Confirm that the information is true before saving.", confirmedBy:(e,d)=>`Information last confirmed as true by: ${e} · ${d}`,
   privacyNote:"Staff can see only their name and designation. All other details are visible to administrators only.",
   acctHead:"Account used to record attendance", connected:"Linked", unlink:"Unlink account",
   noAcctHelp:"No account linked yet. When the staff member scans the QR code and chooses their name, the request appears at the top of this tab.",
@@ -601,7 +612,16 @@ function guideHtml(){
 /* ---------- staff tab ---------- */
 const FIELDS=[["empNo","text"],["nic","text"],["phone","tel"],["email","email"],["dob","date"],["joined","date"],["type","select"],["grade","text"],["address","textarea"],["emergency","text"],["notes","textarea"]];
 let staffInfo={}, selStaff=null, draft=null, sdraft=null, pendingRm=null;
-const typeLabel=v=>T().types[v]||v||"";
+const typeLabel=v=>T().types[v]||"";
+const AVSVG='<svg viewBox="0 0 24 24" width="60%" height="60%" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>';
+/* resize a chosen photo to a 300x400 portrait JPEG (about 20-40 KB) so it fits inside the staff record */
+function shrinkPhoto(file){return new Promise((res,rej)=>{
+  const url=URL.createObjectURL(file); const img=new Image();
+  img.onload=()=>{const W=300,H=400,r=W/H; let sw=img.naturalWidth,sh=img.naturalHeight,sx=0,sy=0;
+    if(sw/sh>r){const nw=sh*r;sx=(sw-nw)/2;sw=nw}else{const nh=sw/r;sy=(sh-nh)/2;sh=nh}
+    const c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.drawImage(img,sx,sy,sw,sh,0,0,W,H);
+    URL.revokeObjectURL(url);res(c.toDataURL("image/jpeg",0.8))};
+  img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("img"))}; img.src=url;})}
 function openStaffForm(id){
   selStaff=id; pendingRm=null;
   const s=staff.find(x=>x.id===id);
@@ -618,19 +638,25 @@ function fieldHtml([k,type]){
 function renderStaffTab(){
   const open=claims.filter(c=>!isClaimDone(c));
   const list=staff.map(s=>{const inf=staffInfo[s.id]||{};return `<button type="button" class="srow2" data-open="${s.id}" aria-pressed="${selStaff===s.id}">
-      <span class="grow"><b>${esc(s.name)}</b><br><span class="muted" style="font-size:13px">${[s.title,inf.empNo&&(t("numPrefix")+inf.empNo),typeLabel(inf.type)].filter(Boolean).map(esc).join(" · ")||t("noDetails")}</span></span>
+      ${inf.photo?`<img class="av" src="${inf.photo}" alt="">`:`<span class="av" aria-hidden="true">${AVSVG}</span>`}<span class="grow"><b>${esc(s.name)}</b><br><span class="muted" style="font-size:13px">${[s.title,inf.empNo&&(t("numPrefix")+inf.empNo),typeLabel(inf.type)].filter(Boolean).map(esc).join(" · ")||t("noDetails")}</span></span>
       ${s.uid?`<span class="chip ok">${t("linked")}</span>`:`<span class="chip info">${t("noAcct")}</span>`}</button>`}).join("");
   let form="";
   if(selStaff&&draft){
     const s=staff.find(x=>x.id===selStaff); const isNew=selStaff==="new";
     form=`<div class="panel" id="staffForm" style="display:grid;gap:16px">
       <div class="row"><h2>${isNew?t("newTitle"):esc(s?.name||"")}</h2><button class="btn sm ghost" type="button" id="closeForm">${t("close")}</button></div>
+      <div class="photoRow"><div class="photo">${draft.photo?`<img src="${draft.photo}" alt="${esc(t("photo"))}">`:AVSVG}</div>
+        <div style="display:grid;gap:6px"><span class="muted" style="font-size:12.5px">${t("photo")}</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><label class="btn sm" for="f_photo" style="cursor:pointer">${draft.photo?t("changePhoto"):t("addPhoto")}</label>${draft.photo?`<button class="btn sm ghost" type="button" id="rmPhoto">${t("removePhoto")}</button>`:""}</div>
+          <input type="file" id="f_photo" accept="image/*" hidden><span class="muted" style="font-size:12px">${t("photoHelp")}</span></div></div>
       <div class="fgrid">
         <label class="fld" for="f_name"><span>${t("fullName")}</span><input id="f_name" data-f="name" type="text" value="${esc(draft.name)}" placeholder="${t("namePh")}"></label>
         <label class="fld" for="f_title"><span>${t("desig")}</span><input id="f_title" data-f="title" type="text" value="${esc(draft.title||"")}"></label>
         ${FIELDS.map(fieldHtml).join("")}
       </div>
       <p class="muted" style="margin:0;font-size:12.5px">${t("privacyNote")}</p>
+      <div class="declare"><label class="check" for="f_declare"><input type="checkbox" id="f_declare" ${draft._declare?"checked":""}><span>${t("declare")}</span></label>
+        ${draft.confirmedBy?`<span class="muted" style="font-size:12px">${esc(t("confirmedBy",draft.confirmedBy,new Date(draft.confirmedAt).toLocaleString(T().locale)))}</span>`:""}</div>
       ${!isNew?`<div class="sub2"><h3>${t("acctHead")}</h3>
         ${s?.uid?`<div class="row"><span><span class="chip ok">${t("connected")}</span> ${esc(pname(s.uid))}</span><button class="btn sm" type="button" data-unlink="${s.id}">${t("unlink")}</button></div>`:
         `<p class="muted" style="margin:0;font-size:13px">${t("noAcctHelp")}</p>`}</div>`:""}
@@ -773,7 +799,11 @@ function render(){
 
 const syncDraft=e=>{const f=e.target.dataset?.f;if(f&&draft)draft[f]=e.target.value;const k=e.target.dataset?.s;if(k&&sdraft)sdraft[k]=e.target.value};
 $("#view").addEventListener("input",syncDraft);
-$("#view").addEventListener("change",e=>{syncDraft(e);
+$("#view").addEventListener("change",async e=>{syncDraft(e);
+  if(e.target.id==="f_declare"&&draft){draft._declare=e.target.checked}
+  if(e.target.id==="f_photo"&&draft&&e.target.files?.[0]){
+    try{draft.photo=await shrinkPhoto(e.target.files[0]);render()}catch(err){toast(t("photoFail"))}
+  }
   if(e.target.id==="adDate"&&e.target.value){adminDate=e.target.value;render()}
   if(e.target.id==="adMonth"&&e.target.value){adminDate=e.target.value+"-01";render()}
 });
@@ -793,13 +823,18 @@ $("#view").addEventListener("click",async e=>{
     const ob=tg.closest("[data-open]");
     if(ob){openStaffForm(ob.dataset.open)}
     else if(tg.id==="newStaff"){openStaffForm("new")}
+    else if(tg.id==="rmPhoto"){delete draft.photo;render()}
     else if(tg.id==="closeForm"){selStaff=null;draft=null;pendingRm=null;render()}
     else if(tg.id==="saveStaff"){
       if(!draft.name.trim()){toast(t("nameReq"));$("#f_name")?.focus();return}
+      if(!draft._declare){toast(t("declareReq"));$("#f_declare")?.focus();return}
       const id=selStaff==="new"?"s"+Date.now().toString(36):selStaff; const s=staff.find(x=>x.id===id);
       tg.disabled=true;
       await db.doc("staff/"+id).set({...(s?.raw||{order:staff.length+1}),name:draft.name.trim(),title:(draft.title||"").trim()});
       const info={}; FIELDS.forEach(([k])=>{const v=String(draft[k]||"").trim();if(v)info[k]=v});
+      if(draft.photo) info.photo=draft.photo;
+      info.confirmedBy=(authUser?.email||"").toLowerCase(); info.confirmedAt=new Date().toISOString();
+      draft.confirmedBy=info.confirmedBy; draft.confirmedAt=info.confirmedAt; draft._declare=false;
       await db.doc("staffinfo/"+id).set(info);
       selStaff=id; toast(t("staffSaved")); render();
     }
