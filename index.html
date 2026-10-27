@@ -1,0 +1,906 @@
+<!doctype html>
+<html lang="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#575231">
+<meta name="description" content="Nā Uyana Dharmāyatanaya — staff attendance register">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="පැමිණීම">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px/1.5 system-ui,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>නා උයන — සේවක පැමිණීම</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abhaya+Libre:wght@600;800&family=Noto+Sans+Sinhala:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<style>
+/* Layout: a top bar with the Nā Uyana logo and viewer preferences (language, theme); staff see one marking card, administrators get tabs.
+   Palette: drawn from the logo — olive lettering as the accent, temple-flower gold as the second accent, on light grey or soft charcoal. */
+:root{
+  --logo-l:url("logo-light.webp"); --logo-d:url("logo-dark.webp"); --logo:var(--logo-l);
+  --paper:#ECEEF0; --sheet:#F8F9FA; --ink:#25272C; --ink-2:#5B6069; --rule:#D3D7DC; --rule-2:#E3E6E9;
+  --accent:#575231; --accent-bg:#E6E4D6; --gold:#94681F; --gold-bg:#F3E9D4;
+  --ok:#1F7550; --ok-bg:#DDEFE5; --late:#9C5B00; --late-bg:#F7EAD2; --miss:#AD3746; --miss-bg:#F6E0E3;
+  --on-solid:#FFFFFF; --solid:#25272C; --on-ink:#F8F9FA;
+  --f-display:"Abhaya Libre","Noto Serif Sinhala",Georgia,serif;
+  --f-body:"Noto Sans Sinhala","Iskoola Pota","Nirmala UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]):not([data-app-theme="light"]){
+  --logo:var(--logo-d);
+  --paper:#2A2C30; --sheet:#33363B; --ink:#ECEAE3; --ink-2:#A9ACB3; --rule:#474B52; --rule-2:#3C4046;
+  --accent:#D8CF9F; --accent-bg:#45432F; --gold:#E2B86E; --gold-bg:#4A3D24;
+  --ok:#6CCDA3; --ok-bg:#24402F; --late:#EDB55A; --late-bg:#4A3818; --miss:#F09AA5; --miss-bg:#4C2A30;
+  --on-solid:#1F2023; --solid:#ECEAE3; --on-ink:#2A2C30; color-scheme:dark}}
+:root[data-theme="dark"]:not([data-app-theme="light"]),:root[data-app-theme="dark"]{
+  --logo:var(--logo-d);
+  --paper:#2A2C30; --sheet:#33363B; --ink:#ECEAE3; --ink-2:#A9ACB3; --rule:#474B52; --rule-2:#3C4046;
+  --accent:#D8CF9F; --accent-bg:#45432F; --gold:#E2B86E; --gold-bg:#4A3D24;
+  --ok:#6CCDA3; --ok-bg:#24402F; --late:#EDB55A; --late-bg:#4A3818; --miss:#F09AA5; --miss-bg:#4C2A30;
+  --on-solid:#1F2023; --solid:#ECEAE3; --on-ink:#2A2C30; color-scheme:dark}
+:root[data-app-theme="light"]{color-scheme:light}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;transition:background .2s,color .2s}
+.wrap{max-width:1120px;margin:0 auto;padding-block:14px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+
+/* top bar */
+.topbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 16px;padding-bottom:12px;border-bottom:1px solid var(--rule)}
+.logo{height:clamp(52px,9vw,76px);aspect-ratio:995/322;max-width:100%;background:var(--logo) left center/contain no-repeat;flex:0 1 auto}
+.prefs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-left:auto}
+.pref{display:flex;align-items:center;gap:6px}
+.pref>span{font-size:11.5px;color:var(--ink-2);letter-spacing:.02em}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:999px;padding:2px;background:var(--sheet)}
+.seg button{border:0;background:transparent;color:var(--ink-2);font:inherit;font-size:13px;padding:4px 11px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-ink);font-weight:600}
+.sw{width:11px;height:11px;border-radius:50%;border:1px solid var(--ink-2);display:inline-block}
+.sw.l{background:#ECEEF0}.sw.d{background:#2A2C30}.sw.a{background:linear-gradient(90deg,#ECEEF0 50%,#2A2C30 50%)}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(26px,5vw,36px);line-height:1.15;margin:0;text-wrap:balance;color:var(--accent)}
+h2{font-family:var(--f-display);font-size:23px;margin:0;font-weight:800;text-wrap:balance}
+h3{margin:0;font-size:15px}
+.sub{color:var(--ink-2);margin:4px 0 0;font-size:14px}
+.pill{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--gold-bg);color:var(--gold);font-weight:600}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.tabs button{flex:0 0 auto;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);font:inherit;font-size:14px;padding:7px 14px;border-radius:8px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--solid);color:var(--on-ink);border-color:var(--solid)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.panel{background:var(--sheet);border:1px solid var(--rule);border-radius:12px;padding:18px;min-width:0}
+.btn{border:1px solid var(--rule);background:var(--sheet);color:var(--ink);font:inherit;font-size:14px;padding:8px 14px;border-radius:8px;cursor:pointer}
+.btn:hover{border-color:var(--ink-2)}
+.btn.primary{background:var(--solid);color:var(--on-ink);border-color:var(--solid);font-weight:600}
+.btn.sm{padding:4px 10px;font-size:13px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--ink-2)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.muted{color:var(--ink-2)}
+.chip{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+.chip.late{background:var(--late-bg);color:var(--late)}
+.chip.miss{background:var(--miss-bg);color:var(--miss)}
+.chip.info{background:var(--accent-bg);color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+input[type=date],input[type=month],input[type=time],input[type=text],input[type=tel],input[type=email],select,textarea{font:inherit;padding:7px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--paper);color:var(--ink);min-width:0}
+.tm{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* staff mark card */
+.mark{max-width:520px;margin:0 auto;width:100%;display:grid;gap:16px}
+.clock{font-family:var(--f-mono);font-size:clamp(44px,13vw,64px);font-weight:600;letter-spacing:-.02em;line-height:1;text-align:center;font-variant-numeric:tabular-nums}
+.dateline{text-align:center;color:var(--ink-2);margin-top:6px}
+.who{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--rule-2);padding-top:14px}
+.who b{font-size:18px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.act{border:0;border-radius:12px;padding:18px 12px;font:inherit;font-weight:600;font-size:17px;cursor:pointer;display:grid;gap:2px;text-align:center;color:var(--on-solid)}
+.act small{font-weight:400;font-size:12.5px;opacity:.9}
+.act.in{background:var(--ok);grid-column:1/-1}
+.act.out{background:var(--solid);color:var(--on-ink)}
+.act.early{background:var(--late)}
+.act.offi,.act.back{background:var(--gold);grid-column:1/-1}
+.sheet{border:1px solid var(--rule);border-radius:12px;padding:16px;display:grid;gap:12px;background:var(--paper)}
+.names{display:grid;gap:8px}
+.names button{text-align:left;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);font:inherit;font-size:16px;padding:12px 14px;border-radius:10px;cursor:pointer}
+.notice{padding:14px;border-radius:10px;background:var(--accent-bg);color:var(--ink);font-size:14px}
+.notice.warn{background:var(--late-bg)}
+.done{padding:18px;border-radius:12px;background:var(--ok-bg);color:var(--ok);text-align:center;font-weight:600;font-size:17px}
+.reasons{display:flex;flex-wrap:wrap;gap:6px}
+.reasons button{border:1px solid var(--rule);background:var(--sheet);color:var(--ink);font:inherit;font-size:14px;padding:6px 12px;border-radius:999px;cursor:pointer}
+.reasons button[aria-pressed="true"]{background:var(--late);color:var(--on-solid);border-color:var(--late)}
+.brand{text-align:center;font-family:var(--f-display);font-weight:800;font-size:18px;color:var(--ink-2)}
+body.staffmode header.top{display:none}
+body.staffmode .wrap{max-width:560px}
+body.staffmode .panel{border:0;background:transparent;padding:4px 0}
+body.staffmode .topbar{justify-content:center}
+body.staffmode .logo{height:58px}
+body.staffmode .prefs{margin-left:0;justify-content:center;width:100%}
+
+/* admin */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{border:1px solid var(--rule-2);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font-family:var(--f-mono);font-size:26px;line-height:1.2}
+.stat span{font-size:13px;color:var(--ink-2)}
+.board{display:grid;gap:8px}
+.brow{display:grid;grid-template-columns:minmax(0,1.3fr) 80px 80px minmax(0,1.6fr);gap:12px;align-items:center;border:1px solid var(--rule-2);border-radius:10px;padding:10px 12px}
+.brow .lbl{font-size:11px;color:var(--ink-2);display:block}
+@media (max-width:620px){.brow{grid-template-columns:1fr 1fr}.brow .nm,.brow .nt{grid-column:1/-1}}
+.tablebox{overflow-x:auto;border:1px solid var(--rule);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:680px;font-size:14px}
+th,td{border-bottom:1px solid var(--rule-2);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--rule-2);font-weight:600;font-size:13px}
+td.d{font-family:var(--f-mono);font-weight:500;border-right:1px solid var(--rule-2);width:58px;text-align:center}
+tr.daystart td{border-top:2px solid var(--rule)}
+tr.we td{background:color-mix(in srgb,var(--rule-2) 45%,transparent)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:820px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.list{display:grid;gap:8px}
+.item{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:1px solid var(--rule-2);border-radius:10px;padding:10px 12px}
+.item .grow{flex:1 1 180px;min-width:0}
+.srow2{display:flex;gap:10px;align-items:center;justify-content:space-between;text-align:left;width:100%;border:1px solid var(--rule-2);background:var(--sheet);color:var(--ink);font:inherit;padding:10px 12px;border-radius:10px;cursor:pointer}
+.srow2:hover{border-color:var(--ink-2)}
+.srow2[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-bg)}
+.srow2 .grow{flex:1;min-width:0}
+.fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:520px){.fgrid{grid-template-columns:minmax(0,1fr)}}
+.fld{display:grid;gap:4px;min-width:0}
+.fld.wide{grid-column:1/-1}
+.fld>span{font-size:12.5px;color:var(--ink-2)}
+.fld input,.fld select,.fld textarea{width:100%}
+.sub2{display:grid;gap:8px;border-top:1px solid var(--rule-2);padding-top:12px}
+.qrbox{display:grid;justify-items:center;gap:12px;text-align:center}
+#qr{background:#fff;padding:18px;border-radius:12px;border:1px solid var(--rule)}
+#qr img{display:block;width:260px;height:260px;max-width:100%}
+#qr canvas{display:none!important}
+.url{font-family:var(--f-mono);font-size:12px;word-break:break-all;color:var(--ink-2)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--solid);color:var(--on-ink);padding:10px 16px;border-radius:8px;font-size:14px;z-index:60;max-width:calc(100% - 32px)}
+.loading{padding:40px;text-align:center;color:var(--ink-2)}
+.duebar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:12px;background:var(--gold-bg);border:1px solid var(--gold);margin-bottom:18px}
+.duebar b{font-size:16px}
+.guide{border:1px solid var(--rule);border-radius:10px;background:var(--paper)}
+.guide summary{cursor:pointer;padding:10px 14px;font-weight:600;color:var(--accent)}
+.guide .gbody{padding:0 14px 14px;display:grid;gap:12px}
+.glist{margin:0;display:grid;gap:8px}
+.helplist{display:grid;gap:8px}
+.glist div{display:grid;grid-template-columns:170px minmax(0,1fr);gap:10px;align-items:start}
+.glist dd{margin:0;font-size:14px}
+.optgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.opt{border:1px solid var(--rule);background:var(--sheet);border-radius:999px;padding:3px 10px;font-size:13px}
+@media (max-width:560px){.glist div{grid-template-columns:minmax(0,1fr);gap:2px}}
+
+/* off-screen A4 pages used only to build the PDF (fixed print colours, independent of theme) */
+.pdfhost{position:fixed;left:-12000px;top:0;width:794px;z-index:-1}
+.pg{width:794px;height:1123px;padding:40px 48px 40px;background:#fff;color:#25272C;font-family:"Noto Sans Sinhala","Iskoola Pota",sans-serif;font-size:12.5px;line-height:1.45;letter-spacing:0;display:flex;flex-direction:column;overflow:hidden}
+.pg .ph{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:2px solid #575231;padding-bottom:10px;margin-bottom:12px}
+.pg .ph img{height:46px;width:auto}
+.pg .ph .tt{text-align:right}
+.pg .ph h1{font-family:"Noto Sans Sinhala",sans-serif;font-size:17px;font-weight:700;margin:0;letter-spacing:0;color:#25272C}
+.pg .ph span{font-size:10.5px;color:#5B6069}
+.pg .body{flex:1;min-height:0}
+.pg table{min-width:0;width:100%;border-collapse:collapse;font-size:12px}
+.pg th{background:#E6E4D6;color:#25272C;font-size:11.5px;padding:5px 7px;border:1px solid #CFCBB5}
+.pg td{padding:4px 7px;border:1px solid #D3D7DC;vertical-align:top}
+.pg td.c{text-align:center;font-family:"IBM Plex Mono",monospace}
+.pg tr.we td{background:#F3F4F5}
+.pg .lt{color:#9C5B00;font-weight:600}
+.pg h2{font-family:"Noto Sans Sinhala",sans-serif;font-size:14px;margin:4px 0 6px;letter-spacing:0;color:#575231}
+.pg .pf{display:flex;justify-content:space-between;font-size:10.5px;color:#5B6069;border-top:1px solid #D3D7DC;padding-top:6px;margin-top:8px}
+.pg .sign{display:flex;justify-content:space-between;gap:40px;margin-top:28px;font-size:12px}
+.pg .sign div{flex:1;border-top:1px dotted #25272C;padding-top:4px;text-align:center}
+@media (prefers-reduced-motion:reduce){body{transition:none}}
+.signin{max-width:440px;margin:0 auto;display:grid;gap:16px;text-align:center}
+.gbtn{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);font:inherit;font-size:16px;font-weight:600;padding:12px 18px;border-radius:10px;cursor:pointer}
+.gbtn svg{width:20px;height:20px}
+.who-am{font-size:12px;color:var(--ink-2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="logo" role="img" aria-label="Nā Uyana Dharmāyatanaya — Theravada Dhamma Academic Center"></div>
+    <div class="prefs" id="prefs"></div>
+  </div>
+  <header class="top">
+    <div>
+      <h1 id="h1">සේවක පැමිණීමේ ලේඛනය</h1>
+      <p class="sub" id="subline"></p>
+    </div>
+    <span id="role" class="pill">…</span>
+  </header>
+  <nav class="tabs" id="tabs" role="tablist" hidden></nav>
+  <main id="view"><div class="panel loading">…</div></main>
+</div>
+<div id="toastRoot"></div>
+
+<script>
+(function(){
+const APP_URL=location.origin+location.pathname.replace(/index\.html$/,"")+"#mark";
+const LOGO_PRINT="logo-light.webp";
+
+/* ================= LANGUAGE ================= */
+const L={
+si:{
+  months:["ජනවාරි","පෙබරවාරි","මාර්තු","අප්‍රේල්","මැයි","ජූනි","ජූලි","අගෝස්තු","සැප්තැම්බර්","ඔක්තෝබර්","නොවැම්බර්","දෙසැම්බර්"],
+  wd:["ඉරිදා","සඳුදා","අඟහරුවාදා","බදාදා","බ්‍රහස්පතින්දා","සිකුරාදා","සෙනසුරාදා"], wds:["ඉ","ස","අ","බ","බ්‍ර","සි","සෙ"],
+  evt:{in:"පැමිණීම",out:"පිටවීම",early:"කලින් පිටවීම",offi:"නිල කටයුත්තකට පිටතට",back:"ආපසු පැමිණීම"},
+  reasons:{health:"සෞඛ්‍ය හේතු",medical:"වෛද්‍ය හමුවීමක්",family:"පවුලේ අවශ්‍යතාවයක්",personal:"පෞද්ගලික කටයුතු",emergency:"හදිසි අවස්ථාවක්",leave:"අනුමත නිවාඩු (අර්ධ දින)",other:"වෙනත් හේතු"},
+  duties:{divsec:"ප්‍රාදේශීය ලේකම් කාර්යාලය",bank:"බැංකු කටයුතු",post:"තැපැල් කටයුතු",meeting:"නිල රැස්වීමක්",training:"පුහුණු වැඩසටහනක්",field:"ක්ෂේත්‍ර කටයුතු",purchase:"ආයතනික මිලදී ගැනීම්",other:"වෙනත් නිල කටයුතු"},
+  types:{perm:"ස්ථිර",contract:"කොන්ත්‍රාත්",temp:"තාවකාලික",intern:"අභ්‍යාසලාභී"},
+  fields:{empNo:"සේවක අංකය",nic:"ජාතික හැඳුනුම්පත් අංකය",phone:"දුරකථන අංකය",email:"විද්‍යුත් තැපෑල",dob:"උපන් දිනය",joined:"සේවයට බැඳුණු දිනය",type:"සේවා වර්ගය",grade:"ශ්‍රේණිය / වැටුප් පරිමාණය",address:"ස්ථිර ලිපිනය",emergency:"හදිසි අවස්ථාවකදී සම්බන්ධ කළ යුත්තා (නම හා දුරකථනය)",notes:"වෙනත් සටහන්"},
+  locale:"si-LK",
+  prettyDate:(y,m,d,w)=>`${y} ${m} ${d}, ${w}`, monthTitle:(y,m)=>`${y} ${m} මාසය`,
+  appTitle:"සේවක පැමිණීමේ ලේඛනය", subAdmin:"සියලු සේවකයින්ගේ පැමිණීම බලන්න, සේවක තොරතුරු යාවත්කාලීන කරන්න.", subStaff:"QR කේතය ස්කෑන් කර පැමිණීම හා පිටවීම සටහන් කරන්න.",
+  roleAdmin:"පරිපාලක", roleStaff:"සේවක", connecting:"සම්බන්ධ වෙමින්…", loading:"පූරණය වෙමින්…", notConnected:"සම්බන්ධ නොවේ",
+  theme:"තේමාව", tLight:"ලා අළු", tDark:"ලා කළු", tAuto:"ස්වයං", lang:"භාෂාව",
+  whoAreYou:"ඔබ කවුද?", whoHelp:"පළමු වරට පමණක් ඔබේ නම තෝරන්න. ඉන්පසු මෙම ගිණුමෙන් ස්කෑන් කරන සෑම විටම ඔබව ස්වයංක්‍රීයව හඳුනා ගනී.", noNames:"තෝරා ගත හැකි නම් නැත. පරිපාලකට දන්වන්න.",
+  confirmX:e=>`${e} තහවුරු කරන්න`, time:"වේලාව", chooseReason:"හේතුව තෝරන්න", chooseDuty:"යන කටයුත්ත තෝරන්න",
+  cancel:"අවලංගු කරන්න", confirm:"තහවුරු කරන්න", saving:"සුරකිමින්…",
+  inSub:"දැන් වැඩට පැමිණියා", doneDay:"අද දිනයේ පැමිණීම සම්පූර්ණයි ✓", doneLine:(a,b)=>`පැමිණීම ${a} · පිටවීම ${b}`,
+  backSub:"නිල කටයුත්ත අවසන්", outThere:"එතැනින්ම නිවසට", earlySub:"හේතුව සමඟ", outBefore:t=>`${t} ට පෙර නම් හේතුව අසයි`, outSub:"දවසේ වැඩ අවසන්", offiSub:"ආපසු පැමිණෙන විට නැවත ස්කෑන් කරන්න",
+  pendingNote:n=>`ඔබ "${n}" ලෙස ලියාපදිංචි විය. පරිපාලක අනුමත කරන තුරු ඔබේ සටහන් ලේඛනයේ පෙන්වන්නේ නැත, නමුත් සියල්ල සුරැකේ.`,
+  lastRec:(e,t)=>`අවසන් සටහන: ${e} — ${t}`, staffLbl:"සේවකයා", recognised:"හඳුනාගත්තා", awaiting:"අනුමැතිය බලාපොරොත්තුවෙන්",
+  recorded:(e,t)=>`${e} සටහන් විය — ${t}`, errSave:"සුරැකීමට නොහැකි විය. අන්තර්ජාල සම්බන්ධතාවය පරීක්ෂා කර නැවත උත්සාහ කරන්න.",
+  registered:"ලියාපදිංචි විය", errRegister:"ලියාපදිංචි වීමට නොහැකි විය. නැවත උත්සාහ කරන්න.",
+  tabs:{today:"අද දිනය",month:"මාසික ලේඛනය",staff:"සේවකයින්",settings:"සැකසුම්",qr:"QR කේතය",mark:"මගේ පැමිණීම"},
+  noAccount:"ගිණුම සම්බන්ධ කර නැත", absent:"නොපැමිණි", late:"ප්‍රමාද", onTime:"නියමිත වේලාවට", earlyChip:"කලින් පිටවීම", outsideChip:"නිල කටයුත්තකට පිටතට",
+  lblIn:"පැමිණීම", lblOut:"පිටවීම", lateRule:(a,b)=>`ප්‍රමාද ලෙස ගණන් ගන්නේ ${a} න් පසු · සාමාන්‍ය පිටවීම ${b}`,
+  present:"පැමිණ ඇත", outsideN:"නිල කටයුත්තක", noStaff:"සේවකයින් නැත.",
+  noLinked:'තවම කිසිදු සේවකයෙකු තම ගිණුම සම්බන්ධ කර නැත. "QR කේතය" ටැබයේ කේතය මුද්‍රණය කර, සේවකයින්ට ස්කෑන් කර තම නම තෝරන්නට කියන්න. ඉන්පසු "සේවකයින්" ටැබයේ අනුමත කරන්න.',
+  daysLine:(l,e)=>`පැමිණි දින · ප්‍රමාද ${l} · කලින් පිටවීම ${e}`,
+  colDate:"දිනය", colName:"නම", colNotes:"සටහන්", yes:"ඔව්",
+  guideTitle:"සටහන් තීරුව — මාර්ගෝපදේශය",
+  guideIntro:"සටහන් තීරුව පිරෙන්නේ සේවකයා QR ස්කෑන් කර තෝරන විකල්ප අනුව ස්වයංක්‍රීයවයි. සේවකයින්ට ලිවීමට ඉඩක් නැත. පහත ලැයිස්තුවලින් එකක් තෝරා ගැනීම පමණක් කළ හැක.",
+  guideItems:(la,en)=>[["ප්‍රමාද",`පැමිණි වේලාව ${la} ට පසු නම් "ප්‍රමාද" ලෙස ස්වයංක්‍රීයව සටහන් වේ.`],
+    ["කලින් පිටවීම",`${en} ට පෙර පිටවන විට පිටවූ වේලාව හා හේතුව සටහන් වේ. හේතුව පහත ලැයිස්තුවෙන් තෝරයි.`],
+    ["නිල කටයුත්තකට පිටතට",'පිටත් වූ වේලාව හා කටයුත්ත. කටයුත්ත පහත ලැයිස්තුවෙන් තෝරයි.'],
+    ["ආපසු පැමිණීම","නිල කටයුත්ත අවසන් කර ආපසු පැමිණි වේලාව."],
+    ["නොපැමිණි",'එදින කිසිදු සටහනක් නොමැති නම් PDF වාර්තාවේ "නොපැමිණි" ලෙස පෙන්වයි.']],
+  notStarted:"මෙම මාසය තවම ආරම්භ වී නැත. පැමිණීම් පෙන්වන්නේ අද දිනය දක්වා පමණි.", upToToday:d=>`අද (${d}) දක්වා පැමිණීම් පමණක් පෙන්වයි.`,
+  guideTipsTitle:"සේවකයින්ට උපදෙස්", guideReasons:"කලින් පිටවීමේ හේතු", guideDuties:"නිල කටයුතු",
+  guideTips:["ලැයිස්තුවෙන් වඩාත්ම ගැළපෙන විකල්පය තෝරන්න. කිසිවක් නොගැළපේ නම් \"වෙනත්\" තෝරන්න.","වෛද්‍ය හෝ පුද්ගලික විස්තර කිසිවක් ඇතුළත් කිරීමට අවශ්‍ය නැත.","කාර්යාලයෙන් පිටවන හා ආපසු පැමිණෙන සෑම විටම QR කේතය ස්කෑන් කරන්න. එවිට වේලාවන් නිවැරදිව සටහන් වේ."],
+  pdfNotesKey:"සටහන් තීරුවේ: ප්‍රමාද, කලින් පිටවීම (හේතුව සමඟ), නිල කටයුත්තකට පිටතට (කටයුත්ත සමඟ) හා ආපසු පැමිණීම.",
+  pdfSave:"PDF ලෙස සුරකින්න", csv:"CSV ලෙස බාගන්න", pdfLast:d=>`මෙම මාසයේ PDF එක අවසන් වරට සුරැකුණේ ${d}`,
+  dueTitle:(y,m)=>`${y} ${m} මාසික PDF වාර්තාව සූදානම්`, dueSub:"සියලු සේවකයින්ගේ පැමිණීම, පිටවීම, ප්‍රමාද, කලින් පිටවීම හා සටහන් ඇතුළත්.",
+  pdfDl:"PDF බාගන්න", preparing:"සකසමින්…",
+  reportTitle:"නා උයන ධර්මායතනය — සේවක පැමිණීමේ ලේඛනය", madeBy:s=>`සකස් කළේ: ${s}`, summary:"සාරාංශය", daysPresent:"පැමිණි දින", officialDuty:"නිල කටයුතු", dailyReg:"දෛනික ලේඛනය",
+  pdfRule:(a,b)=>`ප්‍රමාද: ${a} න් පසු පැමිණීම · සාමාන්‍ය පිටවීම: ${b}`, signPrep:"සකස් කළේ (නම හා අත්සන)", signCert:"සහතික කළේ — පරිපාලක", page:(i,n)=>`පිටුව ${i} / ${n}`,
+  pdfOk:"PDF එක සුරැකුණි", dlCancelled:"බාගැනීම අවලංගු කළා", libsFail:"PDF මෙවලම පූරණය නොවීය. පිටුව නැවත විවෘත කරන්න.", pdfFail:"PDF සැකසීමට නොහැකි විය.",
+  newStaff:"+ නව සේවකයෙකු", staffCount:n=>`සේවකයින් (${n})`, noDetails:"විස්තර ඇතුළත් කර නැත", numPrefix:"අංකය ", linked:"ගිණුම සම්බන්ධයි", noAcct:"ගිණුම නැත",
+  newTitle:"නව සේවකයෙකු", close:"වසන්න", fullName:"සම්පූර්ණ නම *", namePh:"උදා: විමලදාස මහතා", desig:"තනතුර", choose:"— තෝරන්න —",
+  privacyNote:"නම හා තනතුර පමණක් සේවකයාට පෙනේ. අනෙක් සියලු විස්තර පරිපාලකයින්ට පමණි.",
+  acctHead:"පැමිණීම සටහන් කරන ගිණුම", connected:"සම්බන්ධයි", unlink:"ගිණුම ඉවත් කරන්න",
+  noAcctHelp:"තවම ගිණුමක් සම්බන්ධ කර නැත. සේවකයා QR කේතය ස්කෑන් කර තම නම තේරූ පසු, ඉල්ලීම මෙම ටැබයේ ඉහළින් පෙන්වයි.",
+  removeStaff:"සේවකයා ඉවත් කරන්න", save:"සුරකින්න", rmConfirm:n=>`${n} ලැයිස්තුවෙන් හා ඔහුගේ පුද්ගලික විස්තර ඉවත් කරන්නද? පැරණි පැමිණීම් සටහන් ගබඩාවේ ඉතිරි වේ.`, no:"නැත", yesRemove:"ඔව්, ඉවත් කරන්න",
+  pickStaff:"සේවකයෙකු තෝරා ඔහුගේ විස්තර බලන්න හෝ යාවත්කාලීන කරන්න.", pendingHead:n=>`අනුමැතිය බලාපොරොත්තුවෙන් (${n})`,
+  acctOf:n=>`<b>${n}</b> ගිණුම`, wantsAs:n=>`"${n}" ලෙස ලියාපදිංචි වීමට ඉල්ලයි`, approve:"අනුමත කරන්න", reject:"ප්‍රතික්ෂේප කරන්න", unnamed:"නමක් නැති ගිණුම",
+  nameReq:"නම ඇතුළත් කරන්න", staffSaved:"සේවක විස්තර සුරැකුණි", unlinked:"ගිණුම ඉවත් කළා", removed:"ඉවත් කළා", approved:n=>`${n} අනුමත කළා`, rejected:"ප්‍රතික්ෂේප කළා",
+  setSaved:"සැකසුම් සුරැකුණි", copied:"පිටපත් කළා", changeFail:"මෙම වෙනස සිදු කළ නොහැකි විය.",
+  office:"කාර්යාලය", officeName:"කාර්යාලයේ / ආයතනයේ නම", officePh:"උදා: නා උයන ධර්මායතනය", officeHelp:"මෙම නම සේවක තිරයේ හා මාසික PDF වාර්තාවේ මාතෘකාවේ පෙන්වයි.",
+  hours:"වැඩ කරන වේලාවන්", lateAfterL:'මෙම වේලාවට පසු පැමිණීම "ප්‍රමාද"', endL:"සාමාන්‍ය පිටවීමේ වේලාව", endHelp:"පිටවීමේ වේලාවට පෙර පිටවන සේවකයින්ගෙන් හේතුවක් ඉල්ලයි.", saveSettings:"සැකසුම් සුරකින්න",
+  pdfReports:"මාසික PDF වාර්තා", pdfHelp:"සෑම මසකම අවසාන දිනට පෙර දින සිට, පරිපාලකයෙකු ඇප් එක විවෘත කළ විට එම මාසයේ PDF එක ස්වයංක්‍රීයව බාගත වේ. බාගත නොවුණොත් ඉහළින් පෙන්වන \"PDF බාගන්න\" තීරුව ඔබන්න.",
+  savedOn:d=>`${d} සුරැකුණි`, reDl:"නැවත බාගන්න", noPdf:"තවම PDF වාර්තා සුරැකී නැත.",
+  helpHead:"ඇප් එක භාවිත කරන ආකාරය — මාර්ගෝපදේශය", helpIntro:"එක් එක් කොටස ඔබා විවෘත කරන්න.", help:[["1. ආරම්භක සැකසුම (පරිපාලක)", ["\"සැකසුම්\" ටැබයේ ප්‍රමාද වේලාව හා සාමාන්‍ය පිටවීමේ වේලාව ඇතුළත් කර \"සැකසුම් සුරකින්න\" ඔබන්න.", "\"සේවකයින්\" ටැබයේ \"+ නව සේවකයෙකු\" ඔබා සෑම සේවකයෙකුගේම නම, තනතුර හා අනෙක් විස්තර ඇතුළත් කරන්න.", "\"සැකසුම්\" ටැබයේ \"පරිපාලකයින්\" කොටසට දෙවන පරිපාලකයාගේ Google email ලිපිනය එක් කරන්න.", "\"QR කේතය\" ටැබයෙන් QR රූපය බාගෙන, මුද්‍රණය කර කාර්යාල ප්‍රවේශ දොරටුව අසල අලවන්න."]], ["2. සේවකයින් ලියාපදිංචි කිරීම", ["සේවකයා QR කේතය ස්කෑන් කර \"Google ගිණුමෙන් පිවිසෙන්න\" ඔබයි. අවශ්‍ය නම් \"ඇප් එක ස්ථාපනය කරන්න\" (හෝ iPhone හි Share → Add to Home Screen) මගින් ඇප් එක දුරකථනයට දැමිය හැක.", "\"ඔබ කවුද?\" ලැයිස්තුවෙන් තම නම තෝරයි. මෙය කළ යුත්තේ පළමු වරට පමණි.", "පරිපාලක \"සේවකයින්\" ටැබයේ ඉහළින් පෙන්වන ඉල්ලීම පරීක්ෂා කර \"අනුමත කරන්න\" ඔබයි. වැරදි නමක් තෝරා ඇත්නම් \"ප්‍රතික්ෂේප කරන්න\".", "අනුමත කළ පසු, එම ගිණුමෙන් ස්කෑන් කරන සෑම විටම සේවකයා ස්වයංක්‍රීයව හඳුනා ගනී."]], ["3. සේවකයාගේ දෛනික භාවිතය", ["පැමිණි විට: QR ස්කෑන් කර \"පැමිණීම\" ඔබා \"තහවුරු කරන්න\".", "නිල කටයුත්තකට පිටතට යන විට: \"නිල කටයුත්තකට පිටතට\" ඔබා, ලැයිස්තුවෙන් කටයුත්ත තෝරා තහවුරු කරන්න. ආපසු පැමිණි විට නැවත ස්කෑන් කර \"ආපසු පැමිණීම\" ඔබන්න.", "සාමාන්‍ය පිටවීමේ වේලාවට පෙර යන විට: \"කලින් පිටවීම\" ඔබා, ලැයිස්තුවෙන් හේතුව තෝරා තහවුරු කරන්න.", "දවසේ වැඩ අවසානයේ: \"පිටවීම\" ඔබා තහවුරු කරන්න. ඉන්පසු \"අද දිනයේ පැමිණීම සම්පූර්ණයි\" යන්න පෙන්වයි.", "වේලාව ලබා ගන්නේ දුරකථනයේ ඔරලෝසුවෙනි. දුරකථනයේ වේලාව නිවැරදි දැයි සහතික කර ගන්න."]], ["4. පරිපාලකයාගේ දෛනික පරීක්ෂාව", ["\"අද දිනය\" ටැබයේ පැමිණි, ප්‍රමාද, කලින් පිටවූ හා නිල කටයුත්තක සිටින අය එකවර පෙන්වයි.", "දින තේරීමෙන් පසුගිය ඕනෑම දිනයක් බැලිය හැක.", "කොළ = නියමිත වේලාවට, තැඹිලි = ප්‍රමාද / කලින් පිටවීම, රතු = නොපැමිණි, ඔලිව් = ගිණුම සම්බන්ධ නැත හෝ නිල කටයුත්තක."]], ["5. මාසික ලේඛනය හා PDF වාර්තාව", ["\"මාසික ලේඛනය\" ටැබයේ මාසය තෝරා සියලු දින හා සටහන් බලන්න. වත්මන් මාසය අද දිනය දක්වා පමණක් පෙන්වයි.", "සෑම මසකම අවසාන දිනට පෙර දින සිට ඇප් එකේ ඉහළින් \"PDF බාගන්න\" තීරුව පෙන්වයි.", "මාසයේ අවසාන දිනට පෙර දින හෝ ඉන්පසු පරිපාලකයෙකු ඇප් එක විවෘත කළ විට එම මාසයේ PDF එක ස්වයංක්‍රීයව බාගත වේ. ඕනෑම මාසයක PDF එක \"PDF ලෙස සුරකින්න\" බොත්තමෙන් ද ලබා ගත හැක.", "PDF එක තෝරා ඇති භාෂාවෙන් සැකසේ. මුද්‍රණය කර අවසාන පිටුවේ අත්සන් ඉරි මත අත්සන් තබන්න."]], ["6. සේවක විස්තර යාවත්කාලීන කිරීම", ["\"සේවකයින්\" ටැබයේ නම ඔබා විස්තර වෙනස් කර \"සුරකින්න\" ඔබන්න.", "සේවකයා නව දුරකථනයක් / ගිණුමක් භාවිත කරයි නම් \"ගිණුම ඉවත් කරන්න\" ඔබා, නැවත QR ස්කෑන් කර ලියාපදිංචි වීමට ඉඩ දෙන්න.", "සේවය හැර ගිය අය \"සේවකයා ඉවත් කරන්න\" මගින් ඉවත් කරන්න. පැරණි පැමිණීම් සටහන් ඉතිරි වේ.", "ජාතික හැඳුනුම්පත, දුරකථනය, ලිපිනය වැනි විස්තර පෙනෙන්නේ පරිපාලකයින්ට පමණි."]], ["7. භාෂාව හා තේමාව", ["පිටුවේ ඉහළ දකුණු කෙළවරින් සිංහල / English තෝරන්න.", "තේමාව: ලා අළු, ලා කළු හෝ ස්වයං (උපාංගයේ සැකසුම අනුව). තේරීම එම උපාංගයේ පමණක් මතක තබා ගනී."]], ["8. ගැටළු විසඳීම", ["\"සුරැකීමට නොහැකි විය\": අන්තර්ජාල සම්බන්ධතාවය පරීක්ෂා කර නැවත උත්සාහ කරන්න.", "සේවකයාට නැවත \"ඔබ කවුද?\" පෙන්වයි නම්: ඔහු වෙනත් ගිණුමකින් පිවිස ඇත. නිවැරදි ගිණුමෙන් පිවිසෙන්න, නැතහොත් ගිණුම ඉවත් කර නැවත ලියාපදිංචි කරන්න.", "පිවිසුම් තිරය පෙන්වයි නම්: \"Google ගිණුමෙන් පිවිසෙන්න\" ඔබා නැවත පිවිසෙන්න.", "PDF බාගත නොවේ නම්: බ්‍රවුසරය බාගැනීම් අවහිර කර ඇත්දැයි බලා \"PDF බාගන්න\" බොත්තම ඔබන්න."]]],
+  signInTitle:"පැමිණීම සටහන් කිරීමට පිවිසෙන්න", signInText:"ඔබේ Google ගිණුමෙන් පිවිසෙන්න. පළමු වරට පමණක් ඔබේ නම තෝරා ගත යුතුය.", signInBtn:"Google ගිණුමෙන් පිවිසෙන්න", signOut:"ඉවත් වන්න", signInFail:"පිවිසීමට නොහැකි විය. නැවත උත්සාහ කරන්න.",
+  firstAdminTitle:"පළමු පරිපාලක සැකසුම", firstAdminText:e=>`මෙම ඇප් එකට තවම පරිපාලකයෙකු නැත. ඔබ (${e}) පළමු පරිපාලක ලෙස ලියාපදිංචි වන්නද? පසුව "සැකසුම්" ටැබයෙන් දෙවන පරිපාලකයා එක් කළ හැක.`, firstAdminBtn:"මම පරිපාලක ලෙස ලියාපදිංචි වෙමි",
+  addAdminPh:"email ලිපිනය (උදා: name@gmail.com)", addAdmin:"එක් කරන්න", removeAdmin:"ඉවත් කරන්න", you:"(ඔබ)", badEmail:"නිවැරදි email ලිපිනයක් ඇතුළත් කරන්න", adminAdded:"පරිපාලක එක් කළා", adminRemoved:"පරිපාලක ඉවත් කළා", lastAdmin:"අවම වශයෙන් එක් පරිපාලකයෙකු සිටිය යුතුය.",
+  seedStaff:"පෙර ලේඛනයේ නම් 3 එක් කරන්න", install:"ඇප් එක ස්ථාපනය කරන්න", autoPdf:m=>`${m} PDF වාර්තාව ස්වයංක්‍රීයව බාගත විය`,
+  adminsHead:"පරිපාලකයින්", adminsHelp:"පරිපාලකයින්ගේ Google ගිණුම් (email ලිපින) මෙහි එක් කරන්න. පරිපාලකයින්ට සියලු ලේඛන හා සේවක විස්තර පෙනේ. අනෙක් සියලු දෙනාට පෙනෙන්නේ පැමිණීම සටහන් කරන තිරය පමණි.",
+  qrHead:"කාර්යාල QR කේතය", qrHelp:"මෙම කේතය මුද්‍රණය කර කාර්යාල ප්‍රවේශ දොරටුව අසල අලවන්න. සේවකයින් දුරකථනයෙන් ස්කෑන් කළ විට ඔවුන්ගේ පැමිණීමේ පිටුව විවෘත වේ.",
+  qrDl:"QR රූපය බාගන්න", copyLink:"සබැඳිය පිටපත් කරන්න", qrFail:"QR කේතය පූරණය කළ නොහැකි විය.",
+  qrSteps:["සේවකයා තම Google ගිණුමෙන් ඇප් එකට පිවිසිය යුතුය.", "පළමු ස්කෑන් කිරීමේදී තම නම තෝරයි; ඔබ එය අනුමත කරයි.", "ඉන්පසු සෑම දිනකම ස්කෑන් කර පැමිණීම, පිටවීම, කලින් පිටවීම හෝ නිල කටයුත්තකට පිටතට යාම තෝරයි."],
+  openInClaude:"ඇප් එකේ Firebase සැකසුම් තවම ඇතුළත් කර නැත. config.js ගොනුවට firebaseConfig එක් කරන්න.", signIn:"ඔබේ Google ගිණුමෙන් පිවිසෙන්න.",
+  noId:"ඔබේ ගිණුම හඳුනා ගත නොහැකි විය. නැවත පිවිසෙන්න.", staffReadFail:"සේවක ලැයිස්තුව කියවිය නොහැක. අන්තර්ජාල සම්බන්ධතාවය පරීක්ෂා කරන්න."
+},
+en:{
+  months:["January","February","March","April","May","June","July","August","September","October","November","December"],
+  wd:["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"], wds:["Su","Mo","Tu","We","Th","Fr","Sa"],
+  evt:{in:"Arrival",out:"Departure",early:"Early leave",offi:"Out on official duty",back:"Returned"},
+  reasons:{health:"Health reasons",medical:"Medical appointment",family:"Family need",personal:"Personal matters",emergency:"Emergency",leave:"Approved half-day leave",other:"Other reason"},
+  duties:{divsec:"Divisional Secretariat",bank:"Bank business",post:"Post office business",meeting:"Official meeting",training:"Training programme",field:"Field work",purchase:"Purchases for the centre",other:"Other official duty"},
+  types:{perm:"Permanent",contract:"Contract",temp:"Temporary",intern:"Trainee"},
+  fields:{empNo:"Employee number",nic:"National ID (NIC) number",phone:"Phone number",email:"Email",dob:"Date of birth",joined:"Date joined",type:"Employment type",grade:"Grade / salary scale",address:"Permanent address",emergency:"Emergency contact (name and phone)",notes:"Other notes"},
+  locale:"en-GB",
+  prettyDate:(y,m,d,w)=>`${w}, ${d} ${m} ${y}`, monthTitle:(y,m)=>`${m} ${y}`,
+  appTitle:"Staff Attendance Register", subAdmin:"See everyone's attendance and keep staff records up to date.", subStaff:"Scan the QR code to record arrival and departure.",
+  roleAdmin:"Administrator", roleStaff:"Staff", connecting:"Connecting…", loading:"Loading…", notConnected:"Not connected",
+  theme:"Theme", tLight:"Light grey", tDark:"Charcoal", tAuto:"Auto", lang:"Language",
+  whoAreYou:"Who are you?", whoHelp:"Choose your name the first time only. After that, every scan from this account recognises you automatically.", noNames:"No names left to choose. Please tell the administrator.",
+  confirmX:e=>`Confirm: ${e}`, time:"Time", chooseReason:"Choose a reason", chooseDuty:"Choose the duty",
+  cancel:"Cancel", confirm:"Confirm", saving:"Saving…",
+  inSub:"Starting work now", doneDay:"Today's attendance is complete ✓", doneLine:(a,b)=>`Arrived ${a} · Left ${b}`,
+  backSub:"Official duty finished", outThere:"Going home from there", earlySub:"With a reason", outBefore:t=>`Asks for a reason before ${t}`, outSub:"Done for the day", offiSub:"Scan again when you return",
+  pendingNote:n=>`You registered as "${n}". Your records are saved, but they won't appear in the register until an administrator approves you.`,
+  lastRec:(e,t)=>`Last record: ${e} — ${t}`, staffLbl:"Staff member", recognised:"Recognised", awaiting:"Awaiting approval",
+  recorded:(e,t)=>`${e} recorded — ${t}`, errSave:"Couldn't save. Check the internet connection and try again.",
+  registered:"Registered", errRegister:"Couldn't register. Try again.",
+  tabs:{today:"Today",month:"Monthly register",staff:"Staff",settings:"Settings",qr:"QR code",mark:"My attendance"},
+  noAccount:"No account linked", absent:"Absent", late:"Late", onTime:"On time", earlyChip:"Left early", outsideChip:"Out on official duty",
+  lblIn:"In", lblOut:"Out", lateRule:(a,b)=>`Late after ${a} · Normal departure ${b}`,
+  present:"Present", outsideN:"On official duty", noStaff:"No staff yet.",
+  noLinked:'No staff member has linked an account yet. Print the code from the "QR code" tab, ask staff to scan it and choose their name, then approve them in the "Staff" tab.',
+  daysLine:(l,e)=>`days present · late ${l} · left early ${e}`,
+  colDate:"Date", colName:"Name", colNotes:"Notes", yes:"Yes",
+  guideTitle:"Notes column — guide",
+  guideIntro:"The Notes column fills itself from the options staff choose when they scan the QR code. Staff can't type anything; they can only pick one option from the lists below.",
+  guideItems:(la,en)=>[["Late",`Arrivals after ${la} are marked "Late" automatically.`],
+    ["Early leave",`Leaving before ${en} records the time and the reason. The reason is chosen from the list below.`],
+    ["Out on official duty",'The time they left and the duty, chosen from the list below.'],
+    ["Returned","The time they came back from official duty."],
+    ["Absent",'With no record for the day, the PDF report shows "Absent".']],
+  notStarted:"This month hasn't started yet. Attendance is shown only up to today.", upToToday:d=>`Showing attendance up to today (${d}) only.`,
+  guideTipsTitle:"Advice for staff", guideReasons:"Early-leave reasons", guideDuties:"Official duties",
+  guideTips:["Pick the option that fits best. If none fits, choose \"Other\".","No medical or personal details are needed.","Scan the QR code every time you leave the office and every time you return, so the times are recorded correctly."],
+  pdfNotesKey:"Notes column: late arrival, early leave (with reason), out on official duty (with the duty) and return.",
+  pdfSave:"Save as PDF", csv:"Download CSV", pdfLast:d=>`This month's PDF was last saved ${d}`,
+  dueTitle:(y,m)=>`${m} ${y} monthly PDF report is ready`, dueSub:"Includes every staff member's arrivals, departures, late arrivals, early leaves and notes.",
+  pdfDl:"Download PDF", preparing:"Preparing…",
+  reportTitle:"Nā Uyana Dharmāyatanaya — Staff Attendance Register", madeBy:s=>`Generated: ${s}`, summary:"Summary", daysPresent:"Days present", officialDuty:"Official duty", dailyReg:"Daily register",
+  pdfRule:(a,b)=>`Late: arrival after ${a} · Normal departure: ${b}`, signPrep:"Prepared by (name & signature)", signCert:"Certified by — Administrator", page:(i,n)=>`Page ${i} of ${n}`,
+  pdfOk:"PDF saved", dlCancelled:"Download cancelled", libsFail:"The PDF tool didn't load. Reopen the page.", pdfFail:"Couldn't create the PDF.",
+  newStaff:"+ New staff member", staffCount:n=>`Staff (${n})`, noDetails:"No details yet", numPrefix:"No. ", linked:"Account linked", noAcct:"No account",
+  newTitle:"New staff member", close:"Close", fullName:"Full name *", namePh:"e.g. Mr. Wimaladasa", desig:"Designation", choose:"— Choose —",
+  privacyNote:"Staff can see only their name and designation. All other details are visible to administrators only.",
+  acctHead:"Account used to record attendance", connected:"Linked", unlink:"Unlink account",
+  noAcctHelp:"No account linked yet. When the staff member scans the QR code and chooses their name, the request appears at the top of this tab.",
+  removeStaff:"Remove staff member", save:"Save", rmConfirm:n=>`Remove ${n} and their personal details from the list? Past attendance records are kept.`, no:"No", yesRemove:"Yes, remove",
+  pickStaff:"Choose a staff member to view or update their details.", pendingHead:n=>`Awaiting approval (${n})`,
+  acctOf:n=>`Account <b>${n}</b>`, wantsAs:n=>`asks to register as "${n}"`, approve:"Approve", reject:"Reject", unnamed:"Unnamed account",
+  nameReq:"Enter a name", staffSaved:"Staff details saved", unlinked:"Account unlinked", removed:"Removed", approved:n=>`${n} approved`, rejected:"Rejected",
+  setSaved:"Settings saved", copied:"Copied", changeFail:"That change couldn't be made.",
+  office:"Office", officeName:"Office / institution name", officePh:"e.g. Nā Uyana Dharmāyatanaya", officeHelp:"This name appears on the staff screen and in the monthly PDF title.",
+  hours:"Working hours", lateAfterL:"Arrivals after this time count as late", endL:"Normal departure time", endHelp:"Staff leaving before this time are asked for a reason.", saveSettings:"Save settings",
+  pdfReports:"Monthly PDF reports", pdfHelp:"From the day before the last day of each month, that month's PDF downloads automatically when an administrator opens the app. If it doesn't, press the \"Download PDF\" bar at the top.",
+  savedOn:d=>`saved ${d}`, reDl:"Download again", noPdf:"No PDF reports saved yet.",
+  helpHead:"How to use the app — guide", helpIntro:"Press a section to open it.", help:[["1. First-time setup (administrator)", ["In \"Settings\", enter the late-arrival time and the normal departure time, then press \"Save settings\".", "In \"Staff\", press \"+ New staff member\" and enter each person's name, designation and other details.", "In \"Settings\", add the second administrator's Google email address under \"Administrators\".", "In \"QR code\", download the QR image, print it and put it up near the office entrance."]], ["2. Registering staff", ["The staff member scans the QR code and presses \"Sign in with Google\". They can put the app on the phone with \"Install app\" (or on iPhone: Share → Add to Home Screen).", "They choose their own name from the \"Who are you?\" list. This is needed only the first time.", "The administrator checks the request at the top of the \"Staff\" tab and presses \"Approve\". If the wrong name was chosen, press \"Reject\".", "Once approved, every scan from that account recognises the staff member automatically."]], ["3. Daily use by staff", ["On arrival: scan the QR code, press \"Arrival\" and \"Confirm\".", "Going out on official duty: press \"Out on official duty\", choose the duty from the list and confirm. On return, scan again and press \"Returned\".", "Leaving before the normal departure time: press \"Early leave\", choose the reason from the list and confirm.", "At the end of the day: press \"Departure\" and confirm. The screen then shows \"Today's attendance is complete\".", "Times come from the phone's clock, so make sure the phone shows the correct time."]], ["4. Administrator's daily check", ["The \"Today\" tab shows who is present, late, left early or out on official duty.", "Use the date picker to look at any earlier day.", "Green = on time, amber = late / left early, red = absent, olive = no account linked or on official duty."]], ["5. Monthly register and PDF report", ["In \"Monthly register\", choose a month to see every day and its notes. The current month shows days up to today only.", "From the day before the last day of each month, a \"Download PDF\" bar appears at the top of the app.", "When an administrator opens the app on or after the day before the last day of the month, that month's PDF downloads automatically. Any month's PDF can also be saved with \"Save as PDF\".", "The PDF is produced in the selected language. Print it and sign on the lines on the last page."]], ["6. Updating staff details", ["In \"Staff\", press a name, change the details and press \"Save\".", "If someone changes phone or account, press \"Unlink account\" and let them scan the QR code and register again.", "Remove people who have left with \"Remove staff member\". Their past attendance records are kept.", "Details such as NIC, phone and address are visible to administrators only."]], ["7. Language and theme", ["Choose සිංහල / English at the top-right of the page.", "Theme: Light grey, Charcoal or Auto (follows the device). The choice is remembered on that device only."]], ["8. Troubleshooting", ["\"Couldn't save\": check the internet connection and try again.", "Staff see \"Who are you?\" again: they are signed in with a different account. Sign in with the right one, or unlink and register again.", "If the sign-in screen appears: press \"Sign in with Google\" and sign in again.", "If the PDF doesn't download: check whether the browser blocked the download, then press \"Download PDF\"."]]],
+  signInTitle:"Sign in to record attendance", signInText:"Sign in with your Google account. You choose your name only the first time.", signInBtn:"Sign in with Google", signOut:"Sign out", signInFail:"Couldn't sign in. Try again.",
+  firstAdminTitle:"First administrator", firstAdminText:e=>`This app has no administrator yet. Register yourself (${e}) as the first administrator? You can add the second administrator later in "Settings".`, firstAdminBtn:"Register me as administrator",
+  addAdminPh:"email address (e.g. name@gmail.com)", addAdmin:"Add", removeAdmin:"Remove", you:"(you)", badEmail:"Enter a valid email address", adminAdded:"Administrator added", adminRemoved:"Administrator removed", lastAdmin:"There must be at least one administrator.",
+  seedStaff:"Add the 3 names from the old register", install:"Install app", autoPdf:m=>`${m} PDF report downloaded automatically`,
+  adminsHead:"Administrators", adminsHelp:"Add the administrators' Google accounts (email addresses) here. Administrators see every register and all staff details. Everyone else sees only the attendance screen.",
+  qrHead:"Office QR code", qrHelp:"Print this code and put it up near the office entrance. Scanning it with a phone opens the staff attendance screen.",
+  qrDl:"Download QR image", copyLink:"Copy link", qrFail:"The QR code couldn't be loaded.",
+  qrSteps:["Staff sign in to the app with their Google account.", "On the first scan they choose their name; you approve it.", "After that they scan every day and choose arrival, departure, early leave or official duty."],
+  openInClaude:"The app's Firebase settings haven't been added yet. Put the firebaseConfig into config.js.", signIn:"Sign in with your Google account.",
+  noId:"Your account couldn't be identified. Please sign in again.", staffReadFail:"The staff list can't be read. Check the internet connection."
+}};
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+let lang=store.get("att.lang")==="en"?"en":"si";
+let themePick=["light","dark","auto"].includes(store.get("att.theme"))?store.get("att.theme"):"light";
+const T=()=>L[lang];
+const t=(k,...a)=>{const v=L[lang][k];return typeof v==="function"?v(...a):v};
+
+function applyTheme(){
+  const r=document.documentElement;
+  if(themePick==="auto") r.removeAttribute("data-app-theme"); else r.setAttribute("data-app-theme",themePick);
+}
+applyTheme();
+
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,"0");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const dstr=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const tstr=d=>`${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const prettyDate=s=>{const d=new Date(s+"T00:00");return t("prettyDate",d.getFullYear(),T().months[d.getMonth()],d.getDate(),T().wd[d.getDay()])};
+function toast(m){const r=$("#toastRoot");r.innerHTML=`<div class="toast" role="status">${esc(m)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>r.innerHTML="",2800)}
+
+let db=null,user=null,me=null,isAdmin=false,downloads=null,booted=false;
+let staff=[],settings={lateAfter:"08:30",endTime:"16:15"};
+const unsub={};
+const off=k=>{if(unsub[k]){unsub[k]();delete unsub[k]}};
+
+/* ================= TOP CHROME ================= */
+function renderChrome(){
+  document.documentElement.lang=lang;
+  $("#prefs").innerHTML=`
+    <div class="pref"><span>${t("lang")}</span><div class="seg" role="group" aria-label="${t("lang")}">
+      <button type="button" data-lang="si" aria-pressed="${lang==="si"}">සිංහල</button><button type="button" data-lang="en" aria-pressed="${lang==="en"}">English</button></div></div>
+    <div class="pref"><span>${t("theme")}</span><div class="seg" role="group" aria-label="${t("theme")}">
+      <button type="button" data-tpick="light" aria-pressed="${themePick==="light"}"><i class="sw l"></i>${t("tLight")}</button>
+      <button type="button" data-tpick="dark" aria-pressed="${themePick==="dark"}"><i class="sw d"></i>${t("tDark")}</button>
+      <button type="button" data-tpick="auto" aria-pressed="${themePick==="auto"}"><i class="sw a"></i>${t("tAuto")}</button></div></div>
+    ${installEvt?`<button type="button" class="btn sm primary" id="installBtn">${t("install")}</button>`:""}
+    ${authUser?`<div class="pref"><span class="who-am" title="${esc(authUser.email||"")}">${esc(authUser.email||"")}</span><button type="button" class="btn sm" id="signOutBtn">${t("signOut")}</button></div>`:""}`;
+  $("#h1").textContent=t("appTitle");
+  if(booted){$("#role").textContent=isAdmin?t("roleAdmin"):t("roleStaff");$("#subline").textContent=isAdmin?t("subAdmin"):t("subStaff")}
+}
+$("#prefs").addEventListener("click",async e=>{
+  if(e.target.id==="signOutBtn"){await firebase.auth().signOut();location.hash="";return}
+  if(e.target.id==="installBtn"&&installEvt){installEvt.prompt();try{await installEvt.userChoice}catch(_){};installEvt=null;renderChrome();return}
+  const l=e.target.closest("[data-lang]"); const p=e.target.closest("[data-tpick]");
+  if(l){lang=l.dataset.lang;store.set("att.lang",lang);renderChrome();renderTabs();render()}
+  if(p){themePick=p.dataset.tpick;store.set("att.theme",themePick);applyTheme();renderChrome()}
+});
+
+/* summarise one day document */
+function summ(r){
+  if(!r) return null;
+  const ev=r.events||[]; const E=T().evt;
+  const first=ev.find(e=>e.type==="in");
+  const last=[...ev].reverse().find(e=>e.type==="out"||e.type==="early");
+  const early=ev.find(e=>e.type==="early");
+  const outside=ev.length&&ev[ev.length-1].type==="offi";
+  return {in:first?.time||"",out:last?.time||"",late:!!(first&&first.time>settings.lateAfter),early:!!early,outside,
+    notes:ev.filter(e=>e.type==="offi"||e.type==="back"||e.type==="early").map(e=>{const lbl=e.opt?((e.type==="early"?T().reasons:T().duties)[e.opt]||e.note):e.note;return `${E[e.type]} ${e.time}${lbl?" ("+lbl+")":""}`})};
+}
+
+/* ================= STAFF VIEW ================= */
+let myClaim=null,myToday=null,pending=null,reason="",clockT=null;
+function myStaff(){return staff.find(s=>s.uid&&s.uid===me)||null}
+function claimedStaff(){return myClaim?.claimStaffId?staff.find(s=>s.id===myClaim.claimStaffId):null}
+function startStaff(){
+  const today=dstr(new Date());
+  off("claim");off("today");
+  unsub.claim=db.doc("att/"+me).onSnapshot(s=>{myClaim=s.exists?s.data():null;renderStaff()},()=>{});
+  unsub.today=db.doc(`att/${me}/days/${today}`).onSnapshot(s=>{myToday=s.exists?s.data():null;renderStaff()},()=>{});
+  clearInterval(clockT);clockT=setInterval(()=>{const c=$("#clock");if(c)c.textContent=tstr(new Date())},5000);
+}
+function renderStaff(){
+  if(currentTab!=="mark"||!booted) return;
+  const V=$("#view"); const now=new Date(); const today=dstr(now); const E=T().evt;
+  const linked=myStaff(); const claimed=!linked&&claimedStaff();
+  const s=linked||claimed;
+  let body="";
+  if(!s){
+    body=`<div class="sheet"><h3>${t("whoAreYou")}</h3><p class="muted" style="margin:0;font-size:14px">${t("whoHelp")}</p>
+      <div class="names">${staff.filter(x=>!x.uid).map(x=>`<button type="button" data-claim="${x.id}">${esc(x.name)}${x.title?` <span class="muted" style="font-size:13px">· ${esc(x.title)}</span>`:""}</button>`).join("")||`<p class="muted">${t("noNames")}</p>`}</div></div>`;
+  } else {
+    const ev=myToday?.events||[]; const last=ev[ev.length-1]?.type;
+    const arrived=ev.some(e=>e.type==="in"); const left=last==="out"||last==="early"; const outside=last==="offi";
+    let acts="";
+    if(pending){
+      const isEarly=pending==="early", isOffi=pending==="offi"; const opts=isEarly?T().reasons:isOffi?T().duties:null;
+      acts=`<div class="sheet"><h3>${t("confirmX",E[pending])}</h3>
+        <div class="row"><span class="muted">${t("time")}</span><span class="tm" style="font-size:22px;font-weight:600">${tstr(now)}</span></div>
+        ${opts?`<div><div class="muted" style="font-size:13px;margin-bottom:6px">${isEarly?t("chooseReason"):t("chooseDuty")}</div><div class="reasons" role="group">${Object.entries(opts).map(([k,v])=>`<button type="button" data-reason="${k}" aria-pressed="${reason===k}">${esc(v)}</button>`).join("")}</div></div>`:""}
+        <div class="row"><button class="btn" type="button" id="cancelAct">${t("cancel")}</button><button class="btn primary" type="button" id="confirmAct" ${opts&&!reason?"disabled":""}>${t("confirm")}</button></div></div>`;
+    } else if(!arrived){
+      acts=`<div class="actions"><button class="act in" type="button" data-act="in">${E.in}<small>${t("inSub")}</small></button></div>`;
+    } else if(left){
+      const sm=summ(myToday);
+      acts=`<div class="done">${t("doneDay")}<br><span style="font-weight:400;font-size:14px">${t("doneLine",sm.in,sm.out)}</span></div>`;
+    } else if(outside){
+      acts=`<div class="actions"><button class="act back" type="button" data-act="back">${E.back}<small>${t("backSub")}</small></button>
+        <button class="act out" type="button" data-act="out">${E.out}<small>${t("outThere")}</small></button><button class="act early" type="button" data-act="early">${E.early}<small>${t("earlySub")}</small></button></div>`;
+    } else {
+      const beforeEnd=tstr(now)<settings.endTime;
+      acts=`<div class="actions">
+        <button class="act out" type="button" data-act="${beforeEnd?"early":"out"}">${E.out}<small>${beforeEnd?t("outBefore",settings.endTime):t("outSub")}</small></button>
+        <button class="act early" type="button" data-act="early">${E.early}<small>${t("earlySub")}</small></button>
+        <button class="act offi" type="button" data-act="offi">${E.offi}<small>${t("offiSub")}</small></button></div>`;
+    }
+    body=`${claimed?`<div class="notice warn">${esc(t("pendingNote",claimed.name))}</div>`:""}
+      ${acts}
+      ${ev.length&&!left&&!pending?`<p class="muted" style="margin:0;text-align:center;font-size:14px">${t("lastRec",E[ev[ev.length-1].type],`<span class="tm">${ev[ev.length-1].time}</span>`)}</p>`:""}`;
+    body=`<div class="who"><div><span class="muted" style="font-size:13px">${t("staffLbl")}</span><br><b>${esc(s.name)}</b></div>${linked?`<span class="chip ok">${t("recognised")}</span>`:`<span class="chip late">${t("awaiting")}</span>`}</div>`+body;
+  }
+  V.innerHTML=`<div class="panel"><div class="mark">
+    <div><div class="clock" id="clock">${tstr(now)}</div><div class="dateline">${prettyDate(today)}</div></div>
+    ${body}</div></div>`;
+}
+async function doAct(type){
+  const now=new Date(); const date=dstr(now); const time=tstr(now);
+  const s=myStaff()||claimedStaff(); if(!s) return;
+  const list=type==="early"?L.si.reasons:type==="offi"?L.si.duties:null;
+  const opt=list&&reason?reason:""; const note=opt?list[opt]:"";
+  const ev=[...(myToday?.events||[]),{type,time,opt,note,at:now.toISOString()}];
+  const btn=$("#confirmAct"); if(btn){btn.disabled=true;btn.textContent=t("saving")}
+  try{
+    await db.doc(`att/${me}/days/${date}`).set({date,month:date.slice(0,7),staffId:s.id,staffName:s.name,events:ev,updatedAt:now.toISOString()});
+    pending=null;reason="";toast(t("recorded",T().evt[type],time));
+  }catch(e){toast(t("errSave"));if(btn){btn.disabled=false;btn.textContent=t("confirm")}}
+  renderStaff();
+}
+document.addEventListener("click",async e=>{
+  if(currentTab!=="mark") return;
+  const c=e.target.closest("[data-claim]");
+  if(c){try{await db.doc("att/"+me).set({claimStaffId:c.dataset.claim,claimedAt:new Date().toISOString(),claimName:authUser?.displayName||"",claimEmail:(authUser?.email||"").toLowerCase()});toast(t("registered"))}catch(err){toast(t("errRegister"))}return}
+  const a=e.target.closest("[data-act]");
+  if(a){pending=a.dataset.act;reason="";renderStaff();$("#confirmAct")?.focus();return}
+  const r=e.target.closest("[data-reason]");
+  if(r){reason=r.dataset.reason;renderStaff();return}
+  if(e.target.id==="cancelAct"){pending=null;reason="";renderStaff();return}
+  if(e.target.id==="confirmAct"){doAct(pending);return}
+});
+
+/* ================= ADMIN VIEW ================= */
+let currentTab="mark", adminDate=dstr(new Date()), claims=[], monthRecs={}, monthKey=null, profiles={};
+const TABKEYS=["today","month","staff","settings","qr","mark"];
+function renderTabs(){
+  const N=$("#tabs"); N.hidden=!isAdmin; if(!isAdmin) return;
+  const open=claims.filter(c=>!isClaimDone(c)).length;
+  N.innerHTML=TABKEYS.map(k=>`<button type="button" role="tab" data-tab="${k}" aria-selected="${k===currentTab}">${T().tabs[k]}${k==="staff"&&open?` <span class="chip miss">${open}</span>`:""}</button>`).join("");
+}
+$("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;currentTab=b.dataset.tab;pending=null;sdraft=null;renderTabs();render()});
+function isClaimDone(c){return staff.some(s=>s.uid===c.uid)}
+function watchMonth(){
+  const key=adminDate.slice(0,7); const sig=key+"|"+staff.map(s=>s.uid||"").join(",");
+  if(sig===monthKey) return; monthKey=sig;
+  Object.keys(unsub).filter(k=>k.startsWith("m_")).forEach(off); monthRecs={};
+  staff.filter(s=>s.uid).forEach(s=>{
+    unsub["m_"+s.id]=db.collection(`att/${s.uid}/days`).where("month","==",key).onSnapshot(q=>{
+      const o={};q.docs.forEach(d=>o[d.id]=d.data());monthRecs[s.id]=o;render()},()=>{});
+  });
+}
+function startAdmin(){
+  off("claims");off("info");
+  unsub.info=db.collection("staffinfo").onSnapshot(q=>{staffInfo={};q.docs.forEach(d=>staffInfo[d.id]=d.data());render()},()=>{});
+  unsub.claims=db.collection("att").onSnapshot(q=>{claims=q.docs.filter(d=>d.data()?.claimStaffId).map(d=>({uid:d.id,...d.data()}));loadProfiles(claims.map(c=>c.uid));renderTabs();render()},()=>{});
+}
+async function loadProfiles(ids){
+  ids=ids.concat(staff.map(s=>s.uid).filter(Boolean)).filter(id=>id&&!(id in profiles)); if(!ids.length||!user?.profiles) return;
+  try{const p=await user.profiles(ids);ids.forEach(id=>profiles[id]=p?.[id]||null);render()}catch(e){}
+}
+const pname=id=>profiles[id]?.name||t("unnamed");
+
+function renderToday(){
+  const date=adminDate; const linked=staff.filter(s=>s.uid);
+  let present=0,late=0,early=0,outside=0;
+  const rows=staff.map(s=>{
+    const r=s.uid?monthRecs[s.id]?.[date]:null; const m=summ(r);
+    if(m?.in){present++;if(m.late)late++;if(m.early)early++;if(m.outside)outside++}
+    const chips=!s.uid?`<span class="chip info">${t("noAccount")}</span>`:!m?.in?`<span class="chip miss">${t("absent")}</span>`:
+      `${m.late?`<span class="chip late">${t("late")}</span>`:`<span class="chip ok">${t("onTime")}</span>`} ${m.early?`<span class="chip late">${t("earlyChip")}</span>`:""} ${m.outside?`<span class="chip info">${t("outsideChip")}</span>`:""}`;
+    return `<div class="brow"><div class="nm"><b>${esc(s.name)}</b>${s.title?` <span class="muted" style="font-size:13px">${esc(s.title)}</span>`:""}<br>${chips}</div>
+      <div><span class="lbl">${t("lblIn")}</span><span class="tm">${m?.in||"—"}</span></div><div><span class="lbl">${t("lblOut")}</span><span class="tm">${m?.out||"—"}</span></div>
+      <div class="nt muted" style="font-size:13px">${m?.notes.map(esc).join("<br>")||""}</div></div>`;
+  }).join("");
+  return `<div class="panel" style="display:grid;gap:16px">
+    <div class="row"><div><h2>${prettyDate(date)}</h2><span class="muted" style="font-size:13px">${t("lateRule",settings.lateAfter,settings.endTime)}</span></div>
+      <input type="date" id="adDate" value="${date}" aria-label="${t("colDate")}"></div>
+    <div class="stats"><div class="stat"><b>${present}/${staff.length}</b><span>${t("present")}</span></div><div class="stat"><b style="color:var(--late)">${late}</b><span>${t("late")}</span></div>
+      <div class="stat"><b style="color:var(--late)">${early}</b><span>${t("earlyChip")}</span></div><div class="stat"><b style="color:var(--gold)">${outside}</b><span>${t("outsideN")}</span></div></div>
+    <div class="board">${rows||`<p class="muted">${t("noStaff")}</p>`}</div>
+    ${staff.length&&!linked.length?`<div class="notice">${t("noLinked")}</div>`:""}
+  </div>`;
+}
+function shownDays(y,mo){
+  const now=new Date(); const key=`${y}-${pad(mo)}`; const cur=dstr(now).slice(0,7);
+  return key<cur?new Date(y,mo,0).getDate():key>cur?0:now.getDate();
+}
+function renderMonth(){
+  const [y,mo]=adminDate.split("-").map(Number); const n=shownDays(y,mo); const full=new Date(y,mo,0).getDate();
+  let h="";
+  for(let d=1;d<=n;d++){
+    const date=`${y}-${pad(mo)}-${pad(d)}`; const wd=new Date(y,mo-1,d).getDay();
+    staff.forEach((s,i)=>{const m=summ(monthRecs[s.id]?.[date]);
+      h+=`<tr class="${i===0?"daystart":""} ${wd===0||wd===6?"we":""}">${i===0?`<td class="d" rowspan="${staff.length}">${d}<br><span class="muted" style="font-size:11px">${T().wds[wd]}</span></td>`:""}
+      <td>${esc(s.name)}</td><td class="tm">${m?.in||"—"} ${m?.late?`<span class="chip late">${t("late")}</span>`:""}</td><td class="tm">${m?.out||"—"} ${m?.early?`<span class="chip late">${t("earlyChip")}</span>`:""}</td><td class="muted" style="font-size:13px">${m?.notes.map(esc).join("<br>")||""}</td></tr>`});
+  }
+  const sum=staff.map(s=>{let p=0,l=0,e=0;Object.values(monthRecs[s.id]||{}).forEach(r=>{const m=summ(r);if(m?.in){p++;if(m.late)l++;if(m.early)e++}});
+    return `<div class="stat"><span>${esc(s.name)}</span><b>${p}</b><span>${t("daysLine",l,e)}</span></div>`}).join("");
+  const key=adminDate.slice(0,7);
+  return `<div class="panel" style="display:grid;gap:16px">
+    <div class="row"><h2>${t("monthTitle",y,T().months[mo-1])}</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><input type="month" id="adMonth" value="${key}" aria-label="${T().tabs.month}">${downloads&&n?`<button class="btn sm primary" type="button" data-pdf="${key}">${t("pdfSave")}</button>`:""}</div></div>
+    ${n&&n<full?`<span class="muted" style="font-size:13px">${t("upToToday",prettyDate(dstr(new Date())))}</span>`:""}
+    ${pdfLog[key]?`<span class="muted" style="font-size:13px">${t("pdfLast",new Date(pdfLog[key]).toLocaleString(T().locale))}</span>`:""}
+    <div class="stats">${sum}</div>
+    ${guideHtml()}
+    ${n?`<div class="tablebox"><table><thead><tr><th>${t("colDate")}</th><th>${t("colName")}</th><th>${t("lblIn")}</th><th>${t("lblOut")}</th><th>${t("colNotes")}</th></tr></thead><tbody>${h}</tbody></table></div>`:`<div class="notice">${t("notStarted")}</div>`}</div>`;
+}
+
+let guideOpen=true;
+function guideHtml(){
+  return `<details class="guide" ${guideOpen?"open":""}><summary data-guide>${t("guideTitle")}</summary>
+    <div class="gbody"><p class="muted" style="margin:0;font-size:14px">${t("guideIntro")}</p>
+    <dl class="glist">${t("guideItems",settings.lateAfter,settings.endTime).map(([k,v],i)=>`<div><dt><span class="chip ${i===0||i===1?"late":i===4?"miss":"info"}">${k}</span></dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
+    <div class="optgrid"><div><h3 style="font-size:14px;margin-bottom:6px">${t("guideReasons")}</h3><div class="reasons">${Object.values(T().reasons).map(x=>`<span class="opt">${esc(x)}</span>`).join("")}</div></div>
+      <div><h3 style="font-size:14px;margin-bottom:6px">${t("guideDuties")}</h3><div class="reasons">${Object.values(T().duties).map(x=>`<span class="opt">${esc(x)}</span>`).join("")}</div></div></div>
+    <div><h3 style="font-size:14px;margin-bottom:4px">${t("guideTipsTitle")}</h3><ul style="margin:0;padding-left:20px;font-size:14px">${T().guideTips.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></div></details>`;
+}
+/* ---------- staff tab ---------- */
+const FIELDS=[["empNo","text"],["nic","text"],["phone","tel"],["email","email"],["dob","date"],["joined","date"],["type","select"],["grade","text"],["address","textarea"],["emergency","text"],["notes","textarea"]];
+let staffInfo={}, selStaff=null, draft=null, sdraft=null, pendingRm=null;
+const typeLabel=v=>T().types[v]||v||"";
+function openStaffForm(id){
+  selStaff=id; pendingRm=null;
+  const s=staff.find(x=>x.id===id);
+  draft=id==="new"?{name:"",title:""}:{name:s?.name||"",title:s?.title||"",...(staffInfo[id]||{})};
+  render(); setTimeout(()=>{const f=$("#staffForm");if(f&&window.innerWidth<820)f.scrollIntoView({behavior:"smooth",block:"start"})},50);
+}
+function fieldHtml([k,type]){
+  const v=esc(draft[k]||""); const l=T().fields[k];
+  const inp=type==="textarea"?`<textarea id="f_${k}" data-f="${k}" rows="2">${v}</textarea>`:
+    type==="select"?`<select id="f_${k}" data-f="${k}"><option value="">${t("choose")}</option>${Object.keys(T().types).map(o=>`<option value="${o}" ${draft[k]===o?"selected":""}>${T().types[o]}</option>`).join("")}</select>`:
+    `<input id="f_${k}" data-f="${k}" type="${type}" value="${v}">`;
+  return `<label class="fld ${type==="textarea"?"wide":""}" for="f_${k}"><span>${l}</span>${inp}</label>`;
+}
+function renderStaffTab(){
+  const open=claims.filter(c=>!isClaimDone(c));
+  const list=staff.map(s=>{const inf=staffInfo[s.id]||{};return `<button type="button" class="srow2" data-open="${s.id}" aria-pressed="${selStaff===s.id}">
+      <span class="grow"><b>${esc(s.name)}</b><br><span class="muted" style="font-size:13px">${[s.title,inf.empNo&&(t("numPrefix")+inf.empNo),typeLabel(inf.type)].filter(Boolean).map(esc).join(" · ")||t("noDetails")}</span></span>
+      ${s.uid?`<span class="chip ok">${t("linked")}</span>`:`<span class="chip info">${t("noAcct")}</span>`}</button>`}).join("");
+  let form="";
+  if(selStaff&&draft){
+    const s=staff.find(x=>x.id===selStaff); const isNew=selStaff==="new";
+    form=`<div class="panel" id="staffForm" style="display:grid;gap:16px">
+      <div class="row"><h2>${isNew?t("newTitle"):esc(s?.name||"")}</h2><button class="btn sm ghost" type="button" id="closeForm">${t("close")}</button></div>
+      <div class="fgrid">
+        <label class="fld" for="f_name"><span>${t("fullName")}</span><input id="f_name" data-f="name" type="text" value="${esc(draft.name)}" placeholder="${t("namePh")}"></label>
+        <label class="fld" for="f_title"><span>${t("desig")}</span><input id="f_title" data-f="title" type="text" value="${esc(draft.title||"")}"></label>
+        ${FIELDS.map(fieldHtml).join("")}
+      </div>
+      <p class="muted" style="margin:0;font-size:12.5px">${t("privacyNote")}</p>
+      ${!isNew?`<div class="sub2"><h3>${t("acctHead")}</h3>
+        ${s?.uid?`<div class="row"><span><span class="chip ok">${t("connected")}</span> ${esc(pname(s.uid))}</span><button class="btn sm" type="button" data-unlink="${s.id}">${t("unlink")}</button></div>`:
+        `<p class="muted" style="margin:0;font-size:13px">${t("noAcctHelp")}</p>`}</div>`:""}
+      <div class="row">${!isNew?`<button class="btn sm ghost" type="button" data-rm="${s?.id}" style="color:var(--miss)">${t("removeStaff")}</button>`:"<span></span>"}<button class="btn primary" type="button" id="saveStaff">${t("save")}</button></div>
+      ${pendingRm?`<div class="notice warn">${esc(t("rmConfirm",s?.name||""))}<div class="row" style="margin-top:8px"><button class="btn sm" type="button" id="rmNo">${t("no")}</button><button class="btn sm primary" type="button" id="rmYes">${t("yesRemove")}</button></div></div>`:""}
+    </div>`;
+  } else {
+    form=`<div class="panel muted" style="display:grid;place-items:center;min-height:200px;text-align:center">${t("pickStaff")}</div>`;
+  }
+  return `${open.length?`<div class="panel" style="display:grid;gap:10px;margin-bottom:18px;border-color:var(--gold)"><h2>${t("pendingHead",open.length)}</h2>
+     ${open.map(c=>{const s=staff.find(x=>x.id===c.claimStaffId);return `<div class="item"><div class="grow">${t("acctOf",esc(pname(c.uid)))}<br><span class="muted" style="font-size:13px">${esc(t("wantsAs",s?.name||"?"))}</span></div>
+       <div style="display:flex;gap:6px"><button class="btn sm primary" type="button" data-approve="${c.uid}" ${!s||s.uid?"disabled":""}>${t("approve")}</button><button class="btn sm" type="button" data-reject="${c.uid}">${t("reject")}</button></div></div>`}).join("")}</div>`:""}
+   <div class="grid2">
+    <div class="panel" style="display:grid;gap:12px"><div class="row"><h2>${t("staffCount",staff.length)}</h2><button class="btn sm primary" type="button" id="newStaff">${t("newStaff")}</button></div>
+      <div class="list">${list||`<p class="muted" style="margin:0">${t("noStaff")}</p><button class="btn sm" type="button" id="seedStaff">${t("seedStaff")}</button>`}</div></div>
+    ${form}
+   </div>`;
+}
+let helpOpen=new Set([0]);
+function helpHtml(){
+  return `<div class="panel" style="display:grid;gap:12px;margin-top:18px"><div><h2>${t("helpHead")}</h2><p class="muted" style="margin:4px 0 0;font-size:14px">${t("helpIntro")}</p></div>
+    <div class="helplist">${T().help.map(([h,steps],i)=>`<details class="guide" ${helpOpen.has(i)?"open":""}><summary data-help="${i}">${esc(h)}</summary>
+      <div class="gbody"><ol style="margin:0;padding-left:22px;display:grid;gap:6px;font-size:14px">${steps.map(x=>`<li>${esc(x)}</li>`).join("")}</ol></div></details>`).join("")}</div></div>`;
+}
+function renderSettings(){
+  if(!sdraft) sdraft={lateAfter:settings.lateAfter,endTime:settings.endTime};
+  const saved=Object.keys(pdfLog).sort().reverse();
+  return `<div class="grid2">
+   <div style="display:grid;gap:18px">
+    <div class="panel" style="display:grid;gap:12px"><h2>${t("hours")}</h2>
+     <div class="row"><label for="setLate">${t("lateAfterL")}</label><input type="time" id="setLate" data-s="lateAfter" value="${esc(sdraft.lateAfter)}"></div>
+     <div class="row"><label for="setEnd">${t("endL")}</label><input type="time" id="setEnd" data-s="endTime" value="${esc(sdraft.endTime)}"></div>
+     <p class="muted" style="margin:0;font-size:13px">${t("endHelp")}</p></div>
+    <div class="row"><span></span><button class="btn primary" type="button" id="saveSet">${t("saveSettings")}</button></div>
+   </div>
+   <div style="display:grid;gap:18px">
+    <div class="panel" style="display:grid;gap:10px"><h2>${t("pdfReports")}</h2>
+     <p class="muted" style="margin:0;font-size:13px">${t("pdfHelp")}</p>
+     ${saved.length?`<div class="list">${saved.map(k=>{const[y,m]=k.split("-").map(Number);return `<div class="item"><span>${t("monthTitle",y,T().months[m-1])}</span><span class="muted" style="font-size:13px">${t("savedOn",new Date(pdfLog[k]).toLocaleDateString(T().locale))}</span>${downloads?`<button class="btn sm" type="button" data-pdf="${k}">${t("reDl")}</button>`:""}</div>`}).join("")}</div>`:`<p class="muted" style="margin:0">${t("noPdf")}</p>`}</div>
+    <div class="panel" style="display:grid;gap:10px"><h2>${t("adminsHead")}</h2>
+     <p class="muted" style="margin:0;font-size:14px">${t("adminsHelp")}</p>
+     <div class="list">${adminEmails.map(em=>`<div class="item"><span class="grow">${esc(em)} ${em===(authUser?.email||"").toLowerCase()?`<span class="muted">${t("you")}</span>`:""}</span>${adminEmails.length>1?`<button class="btn sm ghost" type="button" data-rmadmin="${esc(em)}" style="color:var(--miss)">${t("removeAdmin")}</button>`:""}</div>`).join("")}</div>
+     <div class="item"><input type="email" id="newAdmin" data-s="newAdmin" value="${esc(sdraft.newAdmin||"")}" placeholder="${t("addAdminPh")}" style="flex:1 1 200px"><button class="btn sm primary" type="button" id="addAdmin">${t("addAdmin")}</button></div></div>
+   </div></div>
+   ${helpHtml()}`;
+}
+function renderQR(){
+  return `<div class="panel qrbox"><h2>${t("qrHead")}</h2>
+    <p class="muted" style="margin:0;max-width:46ch">${t("qrHelp")}</p>
+    <div id="qr" aria-label="${t("qrHead")}"></div>
+    <div class="url">${esc(APP_URL)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${downloads?`<button class="btn primary" type="button" id="qrDl">${t("qrDl")}</button>`:""}<button class="btn" type="button" id="copyUrl">${t("copyLink")}</button></div>
+    <ol class="muted" style="text-align:left;font-size:14px;max-width:52ch;margin:0">${T().qrSteps.map(x=>`<li>${x}</li>`).join("")}</ol></div>`;
+}
+function drawQR(){
+  const el=$("#qr"); if(!el) return; el.innerHTML="";
+  if(typeof QRCode==="undefined"){el.textContent=t("qrFail");return}
+  new QRCode(el,{text:APP_URL,width:520,height:520,colorDark:"#25272C",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+}
+
+/* ---------- monthly PDF ---------- */
+let pdfLog={}, pdfBusy=false;
+function dueMonth(){
+  const n=new Date(); const last=new Date(n.getFullYear(),n.getMonth()+1,0).getDate();
+  const cur=dstr(n).slice(0,7); const prev=dstr(new Date(n.getFullYear(),n.getMonth()-1,1)).slice(0,7);
+  if(cur>="2027-01"&&n.getDate()>=last-1&&!pdfLog[cur]) return cur;
+  if(prev>="2027-01"&&!pdfLog[prev]) return prev;
+  return null;
+}
+function dueBar(){
+  const k=dueMonth(); if(!k||!downloads) return "";
+  const [y,m]=k.split("-").map(Number);
+  return `<div class="duebar" role="status"><div><b>${t("dueTitle",y,T().months[m-1])}</b><br><span class="muted" style="font-size:13px">${t("dueSub")}</span></div>
+    <button class="btn primary" type="button" data-pdf="${k}">${pdfBusy?t("preparing"):t("pdfDl")}</button></div>`;
+}
+async function fetchMonth(key){
+  const o={};
+  await Promise.all(staff.filter(s=>s.uid).map(async s=>{
+    const q=await db.collection(`att/${s.uid}/days`).where("month","==",key).get();
+    o[s.id]={}; q.docs.forEach(d=>o[s.id][d.id]=d.data());
+  }));
+  return o;
+}
+async function makePdf(key){
+  if(typeof html2canvas==="undefined"||!window.jspdf) throw {code:"libs"};
+  const recs=await fetchMonth(key);
+  const [y,mo]=key.split("-").map(Number); const n=shownDays(y,mo); if(!n) throw {code:"notStarted"};
+  const title=t("reportTitle"); const sub=t("monthTitle",y,T().months[mo-1]);
+  const made=new Date(); const madeTxt=t("madeBy",`${dstr(made)} ${tstr(made)}`);
+  const sumRows=staff.map(s=>{let p=0,l=0,e=0,o=0;Object.values(recs[s.id]||{}).forEach(r=>{const m=summ(r);if(m?.in){p++;if(m.late)l++;if(m.early)e++;if((r.events||[]).some(x=>x.type==="offi"))o++}});
+    return `<tr><td>${esc(s.name)}${s.title?` <span style="color:#5B6069">(${esc(s.title)})</span>`:""}</td><td class="c">${p}</td><td class="c">${l}</td><td class="c">${e}</td><td class="c">${o}</td></tr>`}).join("");
+  const host=document.createElement("div"); host.className="pdfhost"; document.body.appendChild(host);
+  const pages=[];
+  const newPage=first=>{const pg=document.createElement("div");pg.className="pg";
+    pg.innerHTML=`<div class="ph"><img src="${LOGO_PRINT}" alt=""><div class="tt"><h1>${esc(title)}</h1><b style="font-size:13px;color:#575231">${esc(sub)}</b><br><span>${madeTxt}</span></div></div><div class="body">${first?`<h2>${t("summary")}</h2>
+      <table><thead><tr><th style="text-align:left">${t("colName")}</th><th>${t("daysPresent")}</th><th>${t("late")}</th><th>${t("earlyChip")}</th><th>${t("officialDuty")}</th></tr></thead><tbody>${sumRows}</tbody></table>
+      <p style="margin:6px 0 12px;color:#5B6069;font-size:11px">${t("pdfRule",settings.lateAfter,settings.endTime)}<br>${t("pdfNotesKey")}</p><h2>${t("dailyReg")}</h2>`:""}
+      <table class="daily"><thead><tr><th style="width:70px">${t("colDate")}</th><th style="text-align:left">${t("colName")}</th><th style="width:66px">${t("lblIn")}</th><th style="width:66px">${t("lblOut")}</th><th style="text-align:left">${t("colNotes")}</th></tr></thead><tbody></tbody></table></div>
+      <div class="pf"><span>${esc(title)} · ${esc(sub)}</span><span class="pn"></span></div>`;
+    host.appendChild(pg); pages.push(pg); return pg};
+  let pg=newPage(true);
+  const fits=p=>{const b=p.querySelector(".body");return b.scrollHeight<=b.clientHeight};
+  for(let d=1;d<=n;d++){
+    const date=`${y}-${pad(mo)}-${pad(d)}`; const wd=new Date(y,mo-1,d).getDay(); const we=wd===0||wd===6;
+    const html=staff.map((s,i)=>{const m=summ(recs[s.id]?.[date]);
+      return `<tr class="${we?"we":""}">${i===0?`<td class="c" rowspan="${staff.length}">${d}<br><span style="font-size:10px;color:#5B6069">${T().wd[wd]}</span></td>`:""}<td>${esc(s.name)}</td>
+        <td class="c ${m?.late?"lt":""}">${m?.in||"—"}</td><td class="c ${m?.early?"lt":""}">${m?.out||"—"}</td>
+        <td style="font-size:11px">${m?[m.late?t("late"):"",...m.notes].filter(Boolean).map(esc).join("<br>"):(s.uid?`<span style="color:#AD3746">${t("absent")}</span>`:"")}</td></tr>`}).join("");
+    const tb=pg.querySelector("table.daily tbody"); tb.insertAdjacentHTML("beforeend",html);
+    if(!fits(pg)){ for(let i=0;i<staff.length;i++) tb.lastElementChild.remove(); pg=newPage(false); pg.querySelector("table.daily tbody").insertAdjacentHTML("beforeend",html); }
+  }
+  const sign=`<div class="sign"><div>${t("signPrep")}</div><div>${t("signCert")}</div><div>${t("colDate")}</div></div>`;
+  pg.querySelector(".body").insertAdjacentHTML("beforeend",sign);
+  if(!fits(pg)){pg.querySelector(".sign").remove();pg=newPage(false);pg.querySelector("table.daily").remove();pg.querySelector(".body").insertAdjacentHTML("beforeend",sign)}
+  pages.forEach((p,i)=>p.querySelector(".pn").textContent=t("page",i+1,pages.length));
+  try{
+    if(document.fonts?.ready) await document.fonts.ready;
+    await Promise.all([...host.querySelectorAll("img")].map(i=>i.complete?0:new Promise(r=>{i.onload=i.onerror=r})));
+    const pdf=new window.jspdf.jsPDF({unit:"pt",format:"a4",compress:true});
+    for(let i=0;i<pages.length;i++){
+      const c=await html2canvas(pages[i],{scale:2,backgroundColor:"#ffffff",logging:false,useCORS:true});
+      if(i) pdf.addPage();
+      pdf.addImage(c.toDataURL("image/jpeg",0.9),"JPEG",0,0,595.28,841.89);
+    }
+    await downloads.save({filename:`attendance-${key}.pdf`,data:pdf.output("blob")});
+  } finally { host.remove(); }
+  await db.doc("config/pdflog").set({...pdfLog,[key]:new Date().toISOString()});
+}
+
+function render(){
+  if(!booted) return;
+  if(currentTab==="mark"){renderStaff();return}
+  if(!isAdmin){currentTab="mark";renderStaff();return}
+  watchMonth();
+  const V=$("#view"); const ae=document.activeElement?.id;
+  V.innerHTML=dueBar()+(currentTab==="today"?renderToday():currentTab==="month"?renderMonth():currentTab==="staff"?renderStaffTab():currentTab==="settings"?renderSettings():renderQR());
+  if(currentTab==="qr") drawQR();
+  if(ae&&document.getElementById(ae)) document.getElementById(ae).focus();
+}
+
+const syncDraft=e=>{const f=e.target.dataset?.f;if(f&&draft)draft[f]=e.target.value;const k=e.target.dataset?.s;if(k&&sdraft)sdraft[k]=e.target.value};
+$("#view").addEventListener("input",syncDraft);
+$("#view").addEventListener("change",e=>{syncDraft(e);
+  if(e.target.id==="adDate"&&e.target.value){adminDate=e.target.value;render()}
+  if(e.target.id==="adMonth"&&e.target.value){adminDate=e.target.value+"-01";render()}
+});
+$("#view").addEventListener("click",async e=>{
+  if(!isAdmin||currentTab==="mark") return; const tg=e.target; const d=tg.dataset;
+  if(tg.closest("[data-guide]")){guideOpen=!tg.closest("details").open;return}
+  const hs=tg.closest("[data-help]"); if(hs){const i=+hs.dataset.help;if(hs.closest("details").open)helpOpen.delete(i);else helpOpen.add(i);return}
+  const pb=tg.closest("[data-pdf]");
+  if(pb){
+    if(pdfBusy) return; pdfBusy=true; const old=pb.textContent; pb.textContent=t("preparing"); pb.disabled=true;
+    try{await makePdf(pb.dataset.pdf);toast(t("pdfOk"))}
+    catch(err){toast(err?.code==="declined"?t("dlCancelled"):err?.code==="libs"?t("libsFail"):err?.code==="notStarted"?t("notStarted"):t("pdfFail"))}
+    finally{pdfBusy=false;pb.textContent=old;pb.disabled=false;render()}
+    return;
+  }
+  try{
+    const ob=tg.closest("[data-open]");
+    if(ob){openStaffForm(ob.dataset.open)}
+    else if(tg.id==="newStaff"){openStaffForm("new")}
+    else if(tg.id==="closeForm"){selStaff=null;draft=null;pendingRm=null;render()}
+    else if(tg.id==="saveStaff"){
+      if(!draft.name.trim()){toast(t("nameReq"));$("#f_name")?.focus();return}
+      const id=selStaff==="new"?"s"+Date.now().toString(36):selStaff; const s=staff.find(x=>x.id===id);
+      tg.disabled=true;
+      await db.doc("staff/"+id).set({...(s?.raw||{order:staff.length+1}),name:draft.name.trim(),title:(draft.title||"").trim()});
+      const info={}; FIELDS.forEach(([k])=>{const v=String(draft[k]||"").trim();if(v)info[k]=v});
+      await db.doc("staffinfo/"+id).set(info);
+      selStaff=id; toast(t("staffSaved")); render();
+    }
+    else if(d.unlink){const s=staff.find(x=>x.id===d.unlink);const raw={...s.raw};delete raw.uid;await db.doc("staff/"+s.id).set(raw);toast(t("unlinked"))}
+    else if(d.rm){pendingRm=d.rm;render()}
+    else if(tg.id==="rmNo"){pendingRm=null;render()}
+    else if(tg.id==="rmYes"){const id=pendingRm;await db.doc("staff/"+id).delete();await db.doc("staffinfo/"+id).delete();pendingRm=null;selStaff=null;draft=null;toast(t("removed"));render()}
+    else if(d.approve){const c=claims.find(x=>x.uid===d.approve);const s=staff.find(x=>x.id===c.claimStaffId);await db.doc("staff/"+s.id).set({...s.raw,uid:c.uid});toast(t("approved",s.name))}
+    else if(d.reject){await db.doc("att/"+d.reject).delete();toast(t("rejected"))}
+    else if(tg.id==="saveSet"){const v={lateAfter:sdraft.lateAfter||"08:30",endTime:sdraft.endTime||"16:15"};await db.doc("config/settings").set(v);sdraft=null;toast(t("setSaved"))}
+    else if(tg.id==="addAdmin"){const em=String(sdraft.newAdmin||"").trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){toast(t("badEmail"));return}
+      if(!adminEmails.includes(em))await db.doc("config/admins").set({emails:[...adminEmails,em]});sdraft.newAdmin="";toast(t("adminAdded"))}
+    else if(d.rmadmin){if(adminEmails.length<2){toast(t("lastAdmin"));return}await db.doc("config/admins").set({emails:adminEmails.filter(x=>x!==d.rmadmin)});toast(t("adminRemoved"))}
+    else if(tg.id==="seedStaff"){const names=["විමලදාස මහතා","සුජිත් මහතා","කාලිදාස මහතා"];for(let i=0;i<names.length;i++)await db.doc("staff/s"+(i+1)).set({name:names[i],order:i+1});}
+    else if(tg.id==="copyUrl"){try{await navigator.clipboard.writeText(APP_URL);toast(t("copied"))}catch(err){const u=document.querySelector(".url");const r=document.createRange();r.selectNodeContents(u);getSelection().removeAllRanges();getSelection().addRange(r)}}
+    else if(tg.id==="qrDl"){const c=$("#qr canvas");const blob=await new Promise(r=>c.toBlob(r,"image/png"));await downloads.save({filename:"attendance-qr.png",data:blob})}
+  }catch(err){if(err?.code!=="declined")toast(t("changeFail"))}
+});
+
+/* ================= BOOT (Firebase) ================= */
+let authUser=null, adminEmails=[], installEvt=null, autoTried=false, staffLoaded=false, pdfLoaded=false;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;renderChrome()});
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+function wrapSnap(x){return {id:x.id,exists:x.exists,data:()=>x.data()}}
+function mkQuery(q){return {where:(f,o,v)=>mkQuery(q.where(f,o,v)),
+  get:async()=>{const r=await q.get();return {docs:r.docs.map(wrapSnap)}},
+  onSnapshot:(n,e)=>q.onSnapshot(r=>n({docs:r.docs.map(wrapSnap)}),e)}}
+function makeDb(f){return {
+  doc:p=>{const r=f.doc(p);return {get:async()=>wrapSnap(await r.get()),set:d=>r.set(d),update:d=>r.update(d),delete:()=>r.delete(),onSnapshot:(n,e)=>r.onSnapshot(x=>n(wrapSnap(x)),e)}},
+  collection:p=>mkQuery(f.collection(p))}}
+async function saveFile({filename,data}){
+  const blob=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),5000);return {status:"saved"};
+}
+const GSVG='<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+function showSignIn(){
+  booted=false; document.body.classList.add("staffmode"); $("#tabs").hidden=true; $("#role").textContent="";
+  $("#view").innerHTML=`<div class="panel"><div class="signin"><div class="clock" id="clock">${tstr(new Date())}</div><div class="dateline">${prettyDate(dstr(new Date()))}</div>
+    <h2>${t("signInTitle")}</h2><p class="muted" style="margin:0">${t("signInText")}</p>
+    <div><button class="gbtn" type="button" id="gSignIn">${GSVG}${t("signInBtn")}</button></div></div></div>`;
+  $("#gSignIn").onclick=async()=>{
+    const p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:"select_account"});
+    try{await firebase.auth().signInWithPopup(p)}
+    catch(e){ if(e&&(e.code==="auth/popup-blocked"||e.code==="auth/operation-not-supported-in-this-environment")){try{await firebase.auth().signInWithRedirect(p)}catch(_){toast(t("signInFail"))}} else if(e?.code!=="auth/popup-closed-by-user"&&e?.code!=="auth/cancelled-popup-request") toast(t("signInFail")) }
+  };
+}
+function showFirstAdmin(u,fdb){
+  $("#view").innerHTML=`<div class="panel"><div class="signin"><h2>${t("firstAdminTitle")}</h2><p style="margin:0">${esc(t("firstAdminText",u.email||""))}</p>
+    <div><button class="btn primary" type="button" id="claimAdmin">${t("firstAdminBtn")}</button></div></div></div>`;
+  $("#claimAdmin").onclick=async()=>{try{await fdb.doc("config/admins").set({emails:[(u.email||"").toLowerCase()]});location.reload()}catch(e){toast(t("changeFail"))}};
+}
+function maybeAutoPdf(){
+  if(!isAdmin||autoTried||!staffLoaded||!pdfLoaded||!downloads) return;
+  const k=dueMonth(); if(!k) return; autoTried=true;
+  const [y,m]=k.split("-").map(Number);
+  pdfBusy=true; render();
+  makePdf(k).then(()=>toast(t("autoPdf",t("monthTitle",y,T().months[m-1])))).catch(()=>{}).finally(()=>{pdfBusy=false;render()});
+}
+function startApp(){
+  booted=true;
+  document.body.classList.toggle("staffmode",!isAdmin);
+  renderChrome();
+  currentTab=isAdmin&&location.hash!=="#mark"?(location.hash==="#pdf"?"month":"today"):"mark";
+  if(isAdmin){
+    unsub.pdflog=db.doc("config/pdflog").onSnapshot(s=>{pdfLog=s.exists?s.data():{};pdfLoaded=true;render();maybeAutoPdf()},()=>{});
+    unsub.admins=db.doc("config/admins").onSnapshot(s=>{adminEmails=s.exists?(s.data().emails||[]):[];render()},()=>{});
+  }
+  unsub.settings=db.doc("config/settings").onSnapshot(s=>{if(s.exists)settings={...settings,...s.data()};render()},()=>{});
+  unsub.staff=db.collection("staff").onSnapshot(q=>{
+    staff=q.docs.map(x=>({id:x.id,raw:x.data(),...x.data()})).sort((a,b)=>(a.order??99)-(b.order??99));
+    staffLoaded=true; if(isAdmin)loadProfiles([]); renderTabs(); render(); maybeAutoPdf();
+  },()=>{$("#view").innerHTML=`<div class="panel"><div class="notice warn">${t("staffReadFail")}</div></div>`});
+  startStaff(); if(isAdmin) startAdmin();
+  renderTabs(); render();
+}
+renderChrome();
+$("#role").textContent=t("connecting");
+$("#view").innerHTML=`<div class="panel loading">${t("loading")}</div>`;
+(async()=>{
+  const cfg=window.FIREBASE_CONFIG;
+  if(!cfg||!window.firebase){$("#role").textContent=t("notConnected");$("#view").innerHTML=`<div class="panel"><div class="notice warn">${t("openInClaude")}</div></div>`;return}
+  firebase.initializeApp(cfg);
+  const fdb=firebase.firestore();
+  try{await fdb.enablePersistence({synchronizeTabs:true})}catch(e){}
+  db=makeDb(fdb); downloads={save:saveFile};
+  try{await firebase.auth().getRedirectResult()}catch(e){}
+  firebase.auth().onAuthStateChanged(async u=>{
+    Object.keys(unsub).forEach(off); booted=false; authUser=u; renderChrome();
+    if(!u){showSignIn();return}
+    me=u.uid;
+    $("#view").innerHTML=`<div class="panel loading">${t("loading")}</div>`;
+    let adm=null; try{adm=await fdb.doc("config/admins").get()}catch(e){}
+    if(adm&&!adm.exists){showFirstAdmin(u,fdb);return}
+    adminEmails=adm?.data()?.emails||[];
+    isAdmin=adminEmails.includes((u.email||"").toLowerCase());
+    user={id:async()=>me,profiles:async ids=>{const o={};await Promise.all(ids.map(async id=>{try{const d=await fdb.doc("att/"+id).get();const x=d.data()||{};o[id]={name:x.claimName||x.claimEmail||""}}catch(e){o[id]=null}}));return o}};
+    startApp();
+  });
+})();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+rules_version = '2';
+// Security rules for the Nā Uyana staff attendance app.
+// Paste into Firebase console → Firestore Database → Rules, then press Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function email() { return request.auth.token.email.lower(); }
+    function adminsDoc() { return /databases/$(database)/documents/config/admins; }
+    function isAdmin() {
+      return signedIn() && exists(adminsDoc()) && email() in get(adminsDoc()).data.emails;
+    }
+
+    // Administrators list. The very first signed-in user may create it with only their own email.
+    match /config/admins {
+      allow read: if signedIn();
+      allow create: if signedIn() && !exists(adminsDoc()) && request.resource.data.emails == [email()];
+      allow update: if isAdmin() && request.resource.data.emails.size() > 0;
+    }
+    // Working hours and the PDF log.
+    match /config/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin() && docId != "admins";
+    }
+    // Staff names and designations: everyone signed in can read (to choose their name).
+    match /staff/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    // Personal details (NIC, phone, address...): administrators only.
+    match /staffinfo/{id} {
+      allow read, write: if isAdmin();
+    }
+    // One document per Google account: the name the person chose (registration request).
+    match /att/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      // Daily attendance: each person writes only their own days.
+      match /days/{day} {
+        allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+        allow write: if signedIn() && request.auth.uid == uid;
+      }
+    }
+  }
+}
