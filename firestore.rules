@@ -30,6 +30,13 @@ service cloud.firestore {
     match /staffinfo/{id} {
       allow read, write: if isAdmin();
     }
+    // Leave: staff create their own pending requests and may cancel them while pending; administrators approve, reject, add and remove.
+    match /leave/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isAdmin() || (signedIn() && request.resource.data.uid == request.auth.uid && request.resource.data.status == "pending");
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid && resource.data.status == "pending");
+    }
     // One document per Google account: the name the person chose (registration request).
     match /att/{uid} {
       allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
