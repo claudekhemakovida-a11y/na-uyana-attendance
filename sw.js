@@ -1,5 +1,5 @@
 // Service worker: lets the app install and open quickly. Network first, so updates appear at once.
-const CACHE = "attendance-v1";
+const CACHE = "attendance-v2";
 const SHELL = ["./", "index.html", "config.js", "manifest.webmanifest", "logo-light.webp", "logo-dark.webp",
   "icons/icon-192.png", "icons/icon-512.png", "icons/favicon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
